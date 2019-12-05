@@ -1,0 +1,36 @@
+name: Docker Image CI
+on:
+  push:
+    branches:
+    - master
+  release:
+    types: [published]
+  pull_request:
+    types: [opened, synchronize]
+
+env:
+  DOCKER_BASE_NAME: docker.pkg.github.com/${{ github.repository }}/vsmarketplacebadges
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set env
+      run: |
+        if [ "${{ github.event_name }}" = 'release' ]; then
+            echo "::set-env name=PKG_TAG::${DOCKER_BASE_NAME}:${{ github.event.release.tag_name }}"
+        else
+            echo "::set-env name=PKG_TAG::${DOCKER_BASE_NAME}:latest"
+        fi
+
+    - name: Build image
+      run: |
+        docker build . -t "${PKG_TAG}"
+        docker tag "${PKG_TAG}"
+
+    - name: Push to GitHub Packages
+      if: github.event_name != 'pull_request'
+      run: |
+        docker login docker.pkg.github.com -u owner -p ${{ secrets.GITHUB_TOKEN }}
+        docker push "${PKG_TAG}"
