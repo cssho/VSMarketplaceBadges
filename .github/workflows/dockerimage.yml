@@ -27,7 +27,6 @@ jobs:
     - name: Build image
       run: |
         docker build . -t "${PKG_TAG}"
-        docker tag "${PKG_TAG}"
 
     - name: Push to GitHub Packages
       if: github.event_name != 'pull_request'
