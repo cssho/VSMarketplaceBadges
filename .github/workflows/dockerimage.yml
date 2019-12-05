@@ -9,7 +9,7 @@ on:
     types: [opened, synchronize]
 
 env:
-  DOCKER_BASE_NAME: docker.pkg.github.com/${{ github.repository }}/vsmarketplacebadges
+  DOCKER_BASE_NAME: docker.pkg.github.com/cssho/vsmarketplacebadges/vsmarketplacebadges
 
 jobs:
   push:
