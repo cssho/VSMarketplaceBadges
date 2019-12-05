@@ -43,7 +43,9 @@ jobs:
         service_account_email: ${{ secrets.GCP_SA_EMAIL }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
       
-    - run: |
+    - name: Auth GCloud
+      if: github.event_name == 'release'
+      run: |
         gcloud info
         gcloud auth configure-docker
 
