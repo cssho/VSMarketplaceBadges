@@ -10,7 +10,7 @@ on:
 
 env:
   DOCKER_BASE_NAME: docker.pkg.github.com/cssho/vsmarketplacebadges/vsmarketplacebadges
-
+  GCR_BASE_NAME: gcr.io/vsmarketplacebadges/vsmarketplacebadges
 jobs:
   push:
     runs-on: ubuntu-latest
@@ -20,6 +20,7 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" = 'release' ]; then
             echo "::set-env name=PKG_TAG::${DOCKER_BASE_NAME}:${{ github.event.release.tag_name }}"
+            echo "::set-env name=GCR_TAG::${GCR_BASE_NAME}:${{ github.event.release.tag_name }}"
         else
             echo "::set-env name=PKG_TAG::${DOCKER_BASE_NAME}:latest"
         fi
@@ -33,3 +34,20 @@ jobs:
       run: |
         docker login docker.pkg.github.com -u owner -p ${{ secrets.GITHUB_TOKEN }}
         docker push "${PKG_TAG}"
+
+    - name: Setup Google Cloud SDK
+      if: github.event_name == 'release'
+      uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      with:        
+        version: '272.0.0'
+        service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+      - run: |
+        gcloud info
+        gcloud auth configure-docker
+
+    - name: Push to GCR
+      if: github.event_name == 'release'
+        - run: |
+          docker tag "${PKG_TAG}" "${GCR_TAG}"
+          docker push "${GCR_TAG}"
