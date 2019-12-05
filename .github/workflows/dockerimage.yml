@@ -42,9 +42,10 @@ jobs:
         version: '272.0.0'
         service_account_email: ${{ secrets.GCP_SA_EMAIL }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
-      run: |
-        gcloud info
-        gcloud auth configure-docker
+    
+    - run: |
+      gcloud info
+      gcloud auth configure-docker
 
     - name: Push to GCR
       if: github.event_name == 'release'
