@@ -17,11 +17,14 @@ namespace VSMarketplaceBadges.Utility
 
         public TValue Get(TKey key)
         {
-            if (!cache.ContainsKey(key)) return default(TValue);
-            var cached = cache[key];
+            var success = cache.TryGetValue(key, out var cached);
+            if (!success)
+            {
+                return default(TValue);
+            }
             if (DateTimeOffset.Now - cached.Created >= cached.ExpiresAfter)
             {
-                cache.Remove(key,out var _);
+                cache.TryRemove(key, out var _);
                 return default(TValue);
             }
             return cached.Value;
