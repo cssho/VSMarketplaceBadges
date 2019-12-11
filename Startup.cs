@@ -28,7 +28,7 @@ namespace VSMarketplaceBadges
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers()
-            .ConfigureApiBehaviorOptions(options => { options.SuppressInferBindingSourcesForParameters = true;});
+            .ConfigureApiBehaviorOptions(options => { options.SuppressInferBindingSourcesForParameters = true; });
 
             services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>(x =>
             {
@@ -44,18 +44,18 @@ namespace VSMarketplaceBadges
                 .WaitAndRetryAsync(4, y => TimeSpan.FromSeconds(Math.Pow(3, y))))
         .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
 
-        services.AddHttpClient<IShiledsIoService, ShiledsIoService>(x =>
-            {
-                x.BaseAddress = new Uri("https://img.shields.io");
-                x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
-            }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-            {
-                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
-            }).AddPolicyHandler(
-                HttpPolicyExtensions.HandleTransientHttpError()
-                    .OrResult(y => y.StatusCode == HttpStatusCode.NotFound)
-                    .WaitAndRetryAsync(4, y => TimeSpan.FromSeconds(Math.Pow(3, y))))
-            .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
+            services.AddHttpClient<IShiledsIoService, ShiledsIoService>(x =>
+                {
+                    x.BaseAddress = new Uri("https://img.shields.io");
+                    x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
+                }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+                }).AddPolicyHandler(
+                    HttpPolicyExtensions.HandleTransientHttpError()
+                        .OrResult(y => y.StatusCode == HttpStatusCode.NotFound)
+                        .WaitAndRetryAsync(4, y => TimeSpan.FromSeconds(Math.Pow(3, y))))
+                .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
 
             services.AddMvc(options =>
             {
@@ -67,6 +67,7 @@ namespace VSMarketplaceBadges
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            app.UseErrorHandling();
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -84,7 +85,6 @@ namespace VSMarketplaceBadges
             app.UseStaticFiles();
 
             app.UseSerilogRequestLogging();
-            app.UseErrorHandling();
         }
     }
 }
