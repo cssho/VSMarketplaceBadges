@@ -37,7 +37,7 @@ namespace VSMarketplaceBadges.Controllers
             if (request.BadgeType == BadgeType.Unknown || request.ImageExt == ImageExt.Unknown)
                 return BadRequest();
             var item = await marketplace.LoadVsmItemDataFromApi(request.ItemName);
-            return new ObjectResult(await shiledsIo.LoadImage(request, item.ToBadgeValue(request.BadgeType), Request.QueryString.ToString()))
+            return new ObjectResult(await shiledsIo.LoadImage(request, item?.ToBadgeValue(request.BadgeType), Request.QueryString.ToString()))
             {
                 ContentTypes = new MediaTypeCollection { request.ContentType }
             };

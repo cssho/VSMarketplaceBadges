@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Utf8Json;
 using VSMarketplaceBadges.Entity;
 using VSMarketplaceBadges.Utility;
@@ -16,14 +17,15 @@ namespace VSMarketplaceBadges.Services
     {
         private static readonly string endpoint = "/_apis/public/gallery/extensionquery";
         private readonly HttpClient client;
-
+        private readonly ILogger logger;
         private static readonly Cache<string, VSMarketplaceItem> cache = new Cache<string, VSMarketplaceItem>();
 
         private static readonly ConcurrentDictionary<string, Lazy<SemaphoreSlim>> semaphoreDic = new ConcurrentDictionary<string, Lazy<SemaphoreSlim>>();
 
-        public VSMarketplaceService(HttpClient client)
+        public VSMarketplaceService(HttpClient client, ILogger<VSMarketplaceService> logger)
         {
             this.client = client;
+            this.logger = logger;
         }
 
         public async Task<VSMarketplaceItem> LoadVsmItemDataFromApi(string itemName)
@@ -56,6 +58,11 @@ namespace VSMarketplaceBadges.Services
                 {
                     var extensions = await JsonSerializer.DeserializeAsync<VSMarketplaceResponse>(response);
                     var raw = extensions.Results.FirstOrDefault()?.Extensions?.FirstOrDefault();
+                    if (raw == null)
+                    {
+                        logger.LogInformation("Not found item: {}", itemName);
+                        return null;
+                    }
                     var item = new VSMarketplaceItem(raw);
                     cache.Add(itemName, item, TimeSpan.FromSeconds(30), false);
                     return item;
