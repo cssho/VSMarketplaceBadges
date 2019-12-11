@@ -22,6 +22,7 @@ namespace VSMarketplaceBadges.Middlewares
         {
             try
             {
+                await next(context);
                 if (context.Response.StatusCode >= 400)
                 {
                     var code = context.Response.StatusCode;
