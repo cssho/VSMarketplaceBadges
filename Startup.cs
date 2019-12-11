@@ -11,6 +11,7 @@ using Polly.Extensions.Http;
 using Serilog;
 using VSMarketplaceBadges.Formatters;
 using VSMarketplaceBadges.Services;
+using VSMarketplaceBadges.Middlewares;
 
 namespace VSMarketplaceBadges
 {
@@ -83,6 +84,7 @@ namespace VSMarketplaceBadges
             app.UseStaticFiles();
 
             app.UseSerilogRequestLogging();
+            app.UseErrorHandling();
         }
     }
 }
