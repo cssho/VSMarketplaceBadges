@@ -31,7 +31,7 @@ namespace VSMarketplaceBadges.Controllers
         }
 
         [HttpGet("{BadgeType}/{ItemName}.{ImageExt}")]
-        [ResponseCache(Location = ResponseCacheLocation.None, Duration = 0)]
+        [ResponseCache(Duration = 3600)]
         public async Task<ActionResult<string>> Get(BadgeRequest request)
         {
             if (request.BadgeType == BadgeType.Unknown || request.ImageExt == ImageExt.Unknown)

@@ -1,48 +1,45 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Utf8Json;
 using VSMarketplaceBadges.Entity;
-using VSMarketplaceBadges.Utility;
 
 namespace VSMarketplaceBadges.Services
 {
-    public class VSMarketplaceService : IVSMarketplaceService
+    public class VSMarketplaceService : UseCacheService, IVSMarketplaceService
     {
         private static readonly string endpoint = "/_apis/public/gallery/extensionquery";
         private readonly HttpClient client;
+        private readonly IDistributedCache cache;
         private readonly ILogger logger;
-        private static readonly Cache<string, VSMarketplaceItem> cache = new Cache<string, VSMarketplaceItem>();
 
-        private static readonly ConcurrentDictionary<string, Lazy<SemaphoreSlim>> semaphoreDic = new ConcurrentDictionary<string, Lazy<SemaphoreSlim>>();
-
-        public VSMarketplaceService(HttpClient client, ILogger<VSMarketplaceService> logger)
+        public VSMarketplaceService(HttpClient client, IDistributedCache cache, ILogger<VSMarketplaceService> logger) : base(cache, logger)
         {
             this.client = client;
+            this.cache = cache;
             this.logger = logger;
         }
 
         public async Task<VSMarketplaceItem> LoadVsmItemDataFromApi(string itemName)
         {
-            var cached = cache.Get(itemName);
-            if (cached != null) return cached;
-            var semLazy = semaphoreDic.GetOrAdd(itemName, x => new Lazy<SemaphoreSlim>(() => new SemaphoreSlim(1, 1)));
-            if (await semLazy.Value.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
+            var cached = await FromCache(itemName);
+            if (cached != null)
+                return new VSMarketplaceItem(JsonSerializer.Deserialize<VSMarketplaceResponse>(cached)
+                        .Results.FirstOrDefault()?.Extensions?.FirstOrDefault());
+
+            try
             {
-                cached = cache.Get(itemName);
-                if (cached != null) return cached;
-                try
-                {
-                    return await CoreRequest(itemName);
-                }
-                finally { semLazy.Value.Release(); }
+                return await CoreRequest(itemName);
             }
+            catch (Exception e)
+            {
+                logger.LogError(e, "VSMApi");
+            }
+
             return await CoreRequest(itemName);
         }
 
@@ -53,18 +50,18 @@ namespace VSMarketplaceBadges.Services
             var result = await client.PostAsync(endpoint, req);
             if (result.IsSuccessStatusCode)
             {
-                var response = await result.Content.ReadAsStreamAsync();
+                var response = await result.Content.ReadAsByteArrayAsync();
                 try
                 {
-                    var extensions = await JsonSerializer.DeserializeAsync<VSMarketplaceResponse>(response);
+                    var extensions = JsonSerializer.Deserialize<VSMarketplaceResponse>(response);
                     var raw = extensions.Results.FirstOrDefault()?.Extensions?.FirstOrDefault();
                     if (raw == null)
                     {
-                        logger.LogInformation("Not found item: {}", itemName);
+                        logger.LogInformation("Not found item: {itemName}", itemName);
                         return null;
                     }
                     var item = new VSMarketplaceItem(raw);
-                    cache.Add(itemName, item, TimeSpan.FromSeconds(30), false);
+                    await SaveCache(itemName, response, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
                     return item;
                 }
                 catch (Exception ex)

@@ -17,9 +17,12 @@ namespace VSMarketplaceBadges
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        private readonly IWebHostEnvironment environment;
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            this.environment = env;
         }
 
         public IConfiguration Configuration { get; }
@@ -42,7 +45,7 @@ namespace VSMarketplaceBadges
             HttpPolicyExtensions.HandleTransientHttpError()
                 .OrResult(y => y.StatusCode == HttpStatusCode.NotFound)
                 .WaitAndRetryAsync(4, y => TimeSpan.FromSeconds(Math.Pow(3, y))))
-        .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
+                .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
 
             services.AddHttpClient<IShiledsIoService, ShiledsIoService>(x =>
                 {
@@ -56,12 +59,25 @@ namespace VSMarketplaceBadges
                         .OrResult(y => y.StatusCode == HttpStatusCode.NotFound)
                         .WaitAndRetryAsync(4, y => TimeSpan.FromSeconds(Math.Pow(3, y))))
                 .AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromMinutes(5)));
+            services.AddResponseCaching();
 
             services.AddMvc(options =>
             {
                 options.OutputFormatters.Insert(0, new ImageOutputFormatter());
             });
 
+            if (environment.IsProduction())
+            {
+                services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = Environment.GetEnvironmentVariable("REDIS_CONNECTION_CONFIG");
+                    options.InstanceName = Environment.GetEnvironmentVariable("REDIS_INSTANCE");
+                });
+            }
+            else
+            {
+                services.AddDistributedMemoryCache();
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -82,6 +98,7 @@ namespace VSMarketplaceBadges
                 endpoints.MapControllers();
             });
             app.UseDefaultFiles();
+            app.UseResponseCaching();
             app.UseStaticFiles();
 
             app.UseSerilogRequestLogging();
