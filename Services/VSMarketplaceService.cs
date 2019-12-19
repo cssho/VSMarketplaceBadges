@@ -61,7 +61,7 @@ namespace VSMarketplaceBadges.Services
                         return null;
                     }
                     var item = new VSMarketplaceItem(raw);
-                    await SaveCache(itemName, response, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
+                    await SaveCache(itemName, response, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
                     return item;
                 }
                 catch (Exception ex)
