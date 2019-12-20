@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
-using Serilog.Sinks.GoogleCloudLogging;
+using Serilog.Formatting.Compact;
 using Utf8Json;
 using Utf8Json.Resolvers;
 
@@ -11,22 +11,14 @@ namespace VSMarketplaceBadges
 {
     public class Program
     {
-        private static GoogleCloudLoggingSinkOptions gcLoggingConf;
         public static int Main(string[] args)
         {
-
-            var projectId = Environment.GetEnvironmentVariable("GCP_PROJECT_ID");
-            if (!string.IsNullOrEmpty(projectId))
-                gcLoggingConf = new GoogleCloudLoggingSinkOptions { ProjectId = projectId, UseJsonOutput = true };
-
-
-            var tmp = new LoggerConfiguration()
+            Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
-                .Enrich.FromLogContext();
-
-            Log.Logger = (gcLoggingConf == null ? tmp.WriteTo.Console() : tmp.WriteTo.GoogleCloudLogging(gcLoggingConf))
-                            .CreateLogger();
+                .Enrich.FromLogContext()
+                .WriteTo.Console(new RenderedCompactJsonFormatter())
+                .CreateLogger();
             JsonSerializer.SetDefaultResolver(StandardResolver.CamelCase);
 
             try
