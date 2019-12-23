@@ -45,7 +45,7 @@ namespace VSMarketplaceBadges.Services
 
         private async Task<VSMarketplaceItem> CoreRequest(string itemName)
         {
-            var req = new ByteArrayContent(JsonSerializer.Serialize(new { filters = new[] { new { criteria = new[] { new { filterType = 7, value = itemName }, new { filterType = 12, value = "4096" } } } }, flags = 914 }));
+            var req = new ByteArrayContent(JsonSerializer.Serialize(new { filters = new[] { new { criteria = new[] { new { filterType = 7, value = itemName } } } }, flags = 914 }));
             req.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var result = await client.PostAsync(endpoint, req);
             if (result.IsSuccessStatusCode)
