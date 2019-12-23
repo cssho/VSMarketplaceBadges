@@ -101,7 +101,7 @@ namespace VSMarketplaceBadges
             app.UseResponseCaching();
             app.UseStaticFiles();
 
-            app.UseSerilogRequestLogging();
+            //app.UseSerilogRequestLogging();
         }
     }
 }
