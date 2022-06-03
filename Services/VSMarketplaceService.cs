@@ -2,10 +2,10 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
-using Utf8Json;
 using VSMarketplaceBadges.Entity;
 
 namespace VSMarketplaceBadges.Services
@@ -16,6 +16,11 @@ namespace VSMarketplaceBadges.Services
         private readonly HttpClient client;
         private readonly IDistributedCache cache;
         private readonly ILogger logger;
+
+        private readonly JsonSerializerOptions options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         public VSMarketplaceService(HttpClient client, IDistributedCache cache, ILogger<VSMarketplaceService> logger) : base(cache, logger)
         {
@@ -28,7 +33,7 @@ namespace VSMarketplaceBadges.Services
         {
             var cached = await FromCache(itemName);
             if (cached != null)
-                return new VSMarketplaceItem(JsonSerializer.Deserialize<VSMarketplaceResponse>(cached)
+                return new VSMarketplaceItem(JsonSerializer.Deserialize<VSMarketplaceResponse>(cached, options)
                         .Results.FirstOrDefault()?.Extensions?.FirstOrDefault());
 
             try
@@ -45,7 +50,7 @@ namespace VSMarketplaceBadges.Services
 
         private async Task<VSMarketplaceItem> CoreRequest(string itemName)
         {
-            var req = new ByteArrayContent(JsonSerializer.Serialize(new { filters = new[] { new { criteria = new[] { new { filterType = 7, value = itemName } } } }, flags = 914 }));
+            var req = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(new { filters = new[] { new { criteria = new[] { new { filterType = 7, value = itemName } } } }, flags = 914 }, options));
             req.Headers.ContentType = new MediaTypeHeaderValue("application/json");
             var result = await client.PostAsync(endpoint, req);
             if (result.IsSuccessStatusCode)
@@ -53,7 +58,7 @@ namespace VSMarketplaceBadges.Services
                 var response = await result.Content.ReadAsByteArrayAsync();
                 try
                 {
-                    var extensions = JsonSerializer.Deserialize<VSMarketplaceResponse>(response);
+                    var extensions = JsonSerializer.Deserialize<VSMarketplaceResponse>(response, options);
                     var raw = extensions.Results.FirstOrDefault()?.Extensions?.FirstOrDefault();
                     if (raw == null)
                     {

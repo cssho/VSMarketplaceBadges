@@ -65,19 +65,6 @@ namespace VSMarketplaceBadges
             {
                 options.OutputFormatters.Insert(0, new ImageOutputFormatter());
             });
-
-            if (environment.IsProduction())
-            {
-                services.AddStackExchangeRedisCache(options =>
-                {
-                    options.Configuration = Environment.GetEnvironmentVariable("REDIS_CONNECTION_CONFIG");
-                    options.InstanceName = Environment.GetEnvironmentVariable("REDIS_INSTANCE");
-                });
-            }
-            else
-            {
-                services.AddDistributedMemoryCache();
-            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
