@@ -24,9 +24,8 @@ namespace VSMarketplaceBadges
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             if (env == Microsoft.Extensions.Hosting.Environments.Development)
                 logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
-            else if (env == Microsoft.Extensions.Hosting.Environments.Development)
+            else if (env == Microsoft.Extensions.Hosting.Environments.Production)
             {
-                logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
                 AmazonS3(logConf.WriteTo, "logs", "vsmarketplcae-badges", RegionEndpoint.APNortheast1);
             }
             Log.Logger = logConf.CreateLogger();
