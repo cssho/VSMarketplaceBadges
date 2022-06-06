@@ -19,7 +19,6 @@ namespace VSMarketplaceBadges
         public static int Main(string[] args)
         {
             var logConf = new LoggerConfiguration()
-                .MinimumLevel.Debug()
                 .Enrich.FromLogContext();
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             if (env == Microsoft.Extensions.Hosting.Environments.Development)
@@ -65,7 +64,7 @@ namespace VSMarketplaceBadges
                 FormatProvider = null,
                 RollingInterval = RollingInterval.Hour,
                 Encoding = Encoding.UTF8,
-                FailureCallback = e => Console.WriteLine($"An error occured in my sink: {e.Message}"),
+                FailureCallback = null,
                 BucketPath = null
             };
 
@@ -73,7 +72,7 @@ namespace VSMarketplaceBadges
 
             var batchingOptions = new PeriodicBatchingSinkOptions
             {
-                BatchSizeLimit = 100,
+                BatchSizeLimit = 5000,
                 Period = TimeSpan.FromSeconds(5),
                 EagerlyEmitFirstEvent = true,
                 QueueLimit = 10000
