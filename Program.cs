@@ -19,17 +19,13 @@ namespace VSMarketplaceBadges
         public static int Main(string[] args)
         {
             var logConf = new LoggerConfiguration()
-                .MinimumLevel.Information()
+                .MinimumLevel.Debug()
                 .Enrich.FromLogContext();
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            // if (env == Microsoft.Extensions.Hosting.Environments.Development)
-            //     logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
-            // else if (env == Microsoft.Extensions.Hosting.Environments.Production)
-            // {
-            //     logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
-            //     AmazonS3(logConf.WriteTo, "logs", "vsmarketplcae-badges", RegionEndpoint.APNortheast1);
-            // }
-            logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
+            if (env == Microsoft.Extensions.Hosting.Environments.Development)
+                logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
+            else if (env == Microsoft.Extensions.Hosting.Environments.Production)
+                AmazonS3(logConf.WriteTo, "logs/app.log", "vsmarketplace-badges/logs", RegionEndpoint.APNortheast1);
             Log.Logger = logConf.CreateLogger();
             Log.Information($"env:{env}");
             try
@@ -67,9 +63,9 @@ namespace VSMarketplaceBadges
                 Endpoint = endpoint,
                 OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
                 FormatProvider = null,
-                RollingInterval = RollingInterval.Day,
+                RollingInterval = RollingInterval.Hour,
                 Encoding = Encoding.UTF8,
-                FailureCallback = null,
+                FailureCallback = e => Console.WriteLine($"An error occured in my sink: {e.Message}"),
                 BucketPath = null
             };
 
@@ -78,7 +74,7 @@ namespace VSMarketplaceBadges
             var batchingOptions = new PeriodicBatchingSinkOptions
             {
                 BatchSizeLimit = 100,
-                Period = TimeSpan.FromSeconds(2),
+                Period = TimeSpan.FromSeconds(5),
                 EagerlyEmitFirstEvent = true,
                 QueueLimit = 10000
             };

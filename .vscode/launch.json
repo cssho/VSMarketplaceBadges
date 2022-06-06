@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/netcoreapp3.0/VSMarketplaceBadges.dll",
+            "program": "${workspaceFolder}/bin/Debug/netcoreapp3.1/VSMarketplaceBadges.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
