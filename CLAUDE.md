@@ -1,84 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、Claude Code (claude.ai/code) がこのリポジトリで作業する際のガイドです。
 
-回答は日本語で行うこと。
+回答は日本語で行うこと。CLAUDE.md およびソースコード中のコメントも日本語で記述すること。
 
-## Overview
+## 概要
 
-ASP.NET Core web service that serves shields.io badges for Visual Studio Marketplace extensions.
-Route shape: `GET /{badgeType}/{itemName}.{svg|png}` — see `wwwroot/index.html` for the public doc page.
+Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信する ASP.NET Core の Web サービス。
+ルート形式: `GET /{badgeType}/{itemName}.{svg|png}` — 公開ドキュメントページは `wwwroot/index.html`。
 
-## Build & test
+## ビルドとテスト
 
 ```
-dotnet build                                      # solution: web project + tests
-dotnet test                                       # 83 unit tests
+dotnet build                                      # ソリューション: Web プロジェクト + テスト
+dotnet test                                       # ユニットテスト 91 件
 dotnet test --filter FullyQualifiedName~RatingStar
-dotnet watch run --project VSMarketplaceBadges.csproj   # local dev
+dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
 
-- Targets `net8.0` (LTS). The repo root holds both `VSMarketplaceBadges.sln` and
-  `VSMarketplaceBadges.csproj`, so any command that must act on the web project alone needs it named
-  explicitly (`dotnet publish VSMarketplaceBadges.csproj`) — otherwise MSBuild errors on the ambiguity.
-  The Dockerfile already does this.
-- The web project's root **is** the repo root, so its default `**/*.cs` glob would swallow the test
-  project. `VSMarketplaceBadges.csproj` carries `<Compile Remove="tests/**" />` to prevent that; keep it.
-- `launchSettings.json` is gitignored, so `dotnet run` binds **http://localhost:5000 only** — there is no
-  HTTPS port locally, and `UseHttpsRedirection` no-ops as a result.
-- The dotnet CLI on this machine emits Japanese output (`ビルドに成功しました。` = build succeeded).
+- ターゲットは `net8.0` (LTS)。リポジトリルートに `VSMarketplaceBadges.sln` と
+  `VSMarketplaceBadges.csproj` の両方があるため、Web プロジェクトだけを対象にするコマンドでは
+  明示的にプロジェクトを指定する必要がある (`dotnet publish VSMarketplaceBadges.csproj`)。
+  指定しないと MSBuild が曖昧さでエラーになる。Dockerfile は既に指定済み。
+- Web プロジェクトのルートが**リポジトリルートそのもの**なので、既定の `**/*.cs` グロブは
+  テストプロジェクトまで巻き込んでしまう。`VSMarketplaceBadges.csproj` の
+  `<Compile Remove="tests/**" />` がそれを防いでいるので、削除しないこと。
+- `launchSettings.json` は gitignore されているため、`dotnet run` は
+  **http://localhost:5000 のみ**にバインドする。ローカルに HTTPS ポートはなく、
+  結果として `UseHttpsRedirection` は何もしない。
+- このマシンの dotnet CLI は日本語で出力する (`ビルドに成功しました。`)。
 
-## Load-bearing misspellings
+## バージョンの比較
 
-These typos are baked into namespaces, file names, and DI registrations. Match them exactly; do not
-"correct" them in passing, since a rename touches every reference:
+`VSMarketplaceItem` が表示するバージョンは `Utility/SemanticVersionComparer.cs` で選ぶ。
+semver の優先順位規則 (数値部はセグメントごとの数値比較、プレリリース < 正式版、ビルドメタデータは無視) に従い、
+数値部が semver として解釈できないバージョンが混ざった場合のみ序数の文字列比較にフォールバックする。
 
-- `Shileds` (not `Shields`) — `IShiledsIoService`, `ShiledsIoService`
-- `Midlewares/` directory holds the `VSMarketplaceBadges.Middlewares` namespace (dir/namespace differ)
+## 修正してはいけないスペルミス
+
+これらのタイプミスは名前空間・ファイル名・DI 登録に組み込まれている。リネームすると全参照に
+波及するため、ついでに「修正」せず、そのまま正確に合わせること:
+
+- `Shileds` (`Shields` ではない) — `IShiledsIoService`, `ShiledsIoService`
+- `Midlewares/` ディレクトリに `VSMarketplaceBadges.Middlewares` 名前空間が入っている
+  (ディレクトリ名と名前空間が異なる)
 - `BadgeValuConverterExtentions.cs`
 
-## Logging
+## ロギング
 
-Serilog is configured by hand in `Program.cs`, **not** from `appsettings.json` — the
-`Logging:LogLevel` section that ASP.NET Core normally uses is inert here. The knob is
-`Serilog:MinimumLevel` (or the `Serilog__MinimumLevel` environment variable), defaulting to `Debug` in
-Development and `Information` elsewhere.
+Serilog は `appsettings.json` からではなく `Program.cs` で手書き設定している。そのため
+ASP.NET Core が通常使う `Logging:LogLevel` セクションはここでは無効。設定項目は
+`Serilog:MinimumLevel` (または環境変数 `Serilog__MinimumLevel`) で、既定値は Development で
+`Debug`、それ以外では `Information`。
 
-Sinks are selected by `ASPNETCORE_ENVIRONMENT`: Development → console, Production → Amazon S3
-(`vsmarketplace-badges/logs`, ap-northeast-1). Any other value gets **no sink at all**.
+シンクは `ASPNETCORE_ENVIRONMENT` で選択される: Development → コンソール、Production → Amazon S3
+(`vsmarketplace-badges/logs`, ap-northeast-1)。それ以外の値では**シンクが一切設定されない**。
 
-`SelfLog` writes sink failures to stderr. Without it, a batching sink swallows S3 errors and the app
-keeps serving badges while log shipping is silently dead.
+`SelfLog` はシンクの障害を stderr に出力する。これがないとバッチングシンクが S3 のエラーを
+握りつぶし、ログ転送が死んだままバッジ配信だけが続いてしまう。
 
-## Distributed cache is intentionally unwired
+## 分散キャッシュは意図的に未接続
 
-`UseCacheService` injects `IDistributedCache`, but no distributed cache is registered in `Startup.cs`.
-Redis was removed. Every cache call therefore fails and is swallowed with a `logger.LogError(e, "Redis error.")`.
-This is the known current state, not a bug to fix. Cache-related error logs in production are expected noise.
+`UseCacheService` は `IDistributedCache` を注入しているが、`Startup.cs` では分散キャッシュを
+一切登録していない。Redis は削除済み。したがってすべてのキャッシュ呼び出しは失敗し、
+`logger.LogError(e, "Redis error.")` で握りつぶされる。
+これは既知の現状であり、修正すべきバグではない。本番でのキャッシュ関連エラーログは想定内のノイズ。
 
-## Adding a badge type
+## バッジタイプの追加
 
-A new badge type requires four coordinated edits; missing any one produces a silently broken badge:
+新しいバッジタイプには 4 箇所の連動した編集が必要。1 つでも欠けるとバッジが静かに壊れる:
 
-1. `Entity/BadgeType.cs` — enum member with a matching `[EnumMember(Value="kebab-case")]`.
-   Route binding goes through `CustomEnumConverter`, which keys off `EnumMember`, and falls back to
-   `BadgeType.Unknown` (→ 400) when the string does not match.
-2. `Entity/BadgeRequest.cs` — a subject constant plus a case in the `BadgeType` setter switch.
-   Subjects are URL-encoded literals (e.g. `Visual%20Studio%20Marketplace`).
-3. `Utility/BadgeValuConverterExtentions.cs` — a case in `ToBadgeValue`; the `default` branch throws.
-4. `wwwroot/index.html` — a row on the public doc page.
+1. `Entity/BadgeType.cs` — `[EnumMember(Value="kebab-case")]` を付けた enum メンバー。
+   ルートバインドは `CustomEnumConverter` を経由し、`EnumMember` をキーにする。文字列が
+   一致しない場合は `BadgeType.Unknown` (→ 400) にフォールバックする。
+2. `Entity/BadgeRequest.cs` — subject 定数と、`BadgeType` セッターの switch への case 追加。
+   subject は URL エンコード済みのリテラル (例: `Visual%20Studio%20Marketplace`)。
+3. `Utility/BadgeValuConverterExtentions.cs` — `ToBadgeValue` への case 追加。`default` は例外を投げる。
+4. `wwwroot/index.html` — 公開ドキュメントページへの行追加。
 
-`BadgeTypeBindingTests` enumerates every `BadgeType` and fails if steps 1–3 are incomplete, so run
-`dotnet test` after adding one. Use the `/add-badge-type` skill for this.
+`BadgeTypeBindingTests` が全 `BadgeType` を列挙し、手順 1〜3 が不完全なら失敗する。追加後は
+必ず `dotnet test` を実行すること。この作業には `/add-badge-type` スキルを使う。
 
-## Conventions
+## コーディング規約
 
-- Private fields are lowercase without an underscore prefix (`private readonly ILogger logger;`).
-- Outbound HTTP goes through typed `HttpClient`s registered in `Startup.cs` with Polly retry/timeout
-  policies. Add new external calls the same way rather than newing up an `HttpClient`.
+- private フィールドはアンダースコア接頭辞なしの小文字始まり (`private readonly ILogger logger;`)。
+- 外部への HTTP は `Startup.cs` で Polly のリトライ/タイムアウトポリシー付きに登録した
+  型付き `HttpClient` を経由する。新しい外部呼び出しも `HttpClient` を直接 new せず同じ方式で追加する。
+- コメント (`//` と XML ドキュメントコメントの両方) は日本語で書く。
 
-## Repo etiquette
+## リポジトリ運用ルール
 
-- Work on a feature branch and open a PR; do not commit directly to `master`.
-- Pushing to `master` triggers `.github/workflows/push-ecr.yml`, which builds the Dockerfile and pushes
-  `:latest` to Amazon ECR (ap-northeast-1). A merge to `master` is a production deploy.
+- 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
+- `master` への push は `.github/workflows/push-ecr.yml` を起動し、Dockerfile をビルドして
+  `:latest` を Amazon ECR (ap-northeast-1) に push する。`master` へのマージは本番デプロイに等しい。

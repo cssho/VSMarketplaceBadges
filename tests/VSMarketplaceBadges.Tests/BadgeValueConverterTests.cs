@@ -40,25 +40,55 @@ namespace VSMarketplaceBadges.Tests
         public void Version_IsPrefixedWithV(BadgeType type)
             => Assert.Equal("v2.3.4", Item(version: "2.3.4").ToBadgeValue(type));
 
-        // Versions are compared as strings, not as semantic versions, so 1.10.0 sorts
-        // below 1.9.0. This test pins the current behaviour; changing it is a product
-        // decision, not a refactor.
+        // バージョンはセマンティックバージョニングの規則で比較されるため、1.10.0 が 1.9.0 より上になる。
         [Fact]
-        public void Version_PicksMaxByOrdinalStringComparison()
+        public void Version_PicksMaxBySemanticVersioning()
+        {
+            Assert.Equal("v1.10.0", MaxVersionOf("1.9.0", "1.10.0"));
+        }
+
+        // 数値部が同じなら、プレリリースより正式版のほうが優先順位が高い。
+        [Fact]
+        public void Version_PrefersReleaseOverPreRelease()
+        {
+            Assert.Equal("v2.0.0", MaxVersionOf("2.0.0-rc.1", "2.0.0"));
+        }
+
+        // プレリリース識別子は左から順に比較し、数値識別子は英数字識別子より低い。
+        [Theory]
+        [InlineData("1.0.0-alpha", "1.0.0-alpha.1", "v1.0.0-alpha.1")]
+        [InlineData("1.0.0-alpha.9", "1.0.0-alpha.10", "v1.0.0-alpha.10")]
+        [InlineData("1.0.0-1", "1.0.0-alpha", "v1.0.0-alpha")]
+        [InlineData("1.0.0-beta", "1.0.0-alpha", "v1.0.0-beta")]
+        public void Version_ComparesPreReleaseIdentifiers(string first, string second, string expected)
+            => Assert.Equal(expected, MaxVersionOf(first, second));
+
+        // ビルドメタデータは優先順位に影響しないため、数値部とプレリリースが同じなら順序は変わらない。
+        [Fact]
+        public void Version_IgnoresBuildMetadata()
+            => Assert.Equal("v1.0.1", MaxVersionOf("1.0.0+build.999", "1.0.1"));
+
+        // 桁数が違う場合は不足分を 0 として比較する (Marketplace には 4 桁のバージョンもある)。
+        [Fact]
+        public void Version_TreatsMissingSegmentsAsZero()
+            => Assert.Equal("v1.2.0.1", MaxVersionOf("1.2", "1.2.0.1"));
+
+        // semver として解釈できないバージョンが混ざった場合は序数の文字列比較にフォールバックする。
+        [Fact]
+        public void Version_FallsBackToOrdinalComparisonForUnparsableVersions()
+            => Assert.Equal("v2019.1", MaxVersionOf("2019.1", "1.10.0"));
+
+        private static string MaxVersionOf(params string[] versions)
         {
             var raw = new VSMarketplaceItemRaw
             {
-                Versions = new[]
-                {
-                    new VSMarketplaceVersion { Version = "1.9.0" },
-                    new VSMarketplaceVersion { Version = "1.10.0" },
-                },
+                Versions = Array.ConvertAll(versions, x => new VSMarketplaceVersion { Version = x }),
                 Statistics = Array.Empty<VSMarketplaceStatistics>()
             };
-            Assert.Equal("v1.9.0", new VSMarketplaceItem(raw).ToBadgeValue(BadgeType.Version));
+            return new VSMarketplaceItem(raw).ToBadgeValue(BadgeType.Version);
         }
 
-        // Installs excludes updateCount; downloads includes it.
+        // installs は updateCount を含まず、downloads は含む。
         [Fact]
         public void Installs_SumsInstallAndMigrated()
             => Assert.Equal("150", Item(install: 100, updateCount: 40, migratedInstallCount: 50)
@@ -97,10 +127,10 @@ namespace VSMarketplaceBadges.Tests
         [InlineData(0, "☆☆☆☆☆")]
         [InlineData(5, "★★★★★")]
         [InlineData(4.5, "★★★★½")]
-        [InlineData(3.9, "★★★★☆")]      // fraction >= 7/8 rounds up to a full star
+        [InlineData(3.9, "★★★★☆")]      // 小数部が 7/8 以上なら星 1 つ分に切り上げる
         [InlineData(3.7, "★★★¾☆")]
         [InlineData(2.2, "★★¼☆☆")]
-        [InlineData(1.05, "★☆☆☆☆")]     // fraction < 1/8 contributes nothing
+        [InlineData(1.05, "★☆☆☆☆")]     // 小数部が 1/8 未満なら何も加算しない
         public void RatingStar_RendersFractionalStars(double average, string expected)
             => Assert.Equal(expected, Item(averageRating: average).ToBadgeValue(BadgeType.RatingStar));
 

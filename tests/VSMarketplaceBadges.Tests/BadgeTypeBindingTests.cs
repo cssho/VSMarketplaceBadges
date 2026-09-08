@@ -8,9 +8,9 @@ using Xunit;
 namespace VSMarketplaceBadges.Tests
 {
     /// <summary>
-    /// Route binding for /{badgeType}/{item}.{ext} goes through CustomEnumConverter, which keys off
-    /// [EnumMember]. A badge type missing its attribute, its subject, or its ToBadgeValue case fails
-    /// at request time rather than at build time -- these tests turn that into a build failure.
+    /// /{badgeType}/{item}.{ext} のルートバインドは CustomEnumConverter を経由し、[EnumMember] を
+    /// キーにする。属性・subject・ToBadgeValue の case のいずれかが欠けたバッジタイプは、ビルド時では
+    /// なくリクエスト時に初めて失敗する。これらのテストはそれをビルド時の失敗に変える。
     /// </summary>
     public class BadgeTypeBindingTests
     {
@@ -61,15 +61,15 @@ namespace VSMarketplaceBadges.Tests
         public void KnownSegments_BindToTheirBadgeType(string segment, BadgeType expected)
             => Assert.Equal(expected, TypeDescriptor.GetConverter(typeof(BadgeType)).ConvertFrom(segment));
 
-        // An unmapped segment converts to null, which model binding turns into the default
-        // BadgeType.Unknown -- the controller then returns 400.
+        // マップされていないセグメントは null に変換され、モデルバインドが既定値の
+        // BadgeType.Unknown にする。コントローラーはそれを受けて 400 を返す。
         [Theory]
-        [InlineData("Version")]      // matching is case sensitive
+        [InlineData("Version")]      // 一致判定は大文字小文字を区別する
         [InlineData("installsshort")]
         public void UnknownSegments_DoNotBind(string segment)
             => Assert.Null(TypeDescriptor.GetConverter(typeof(BadgeType)).ConvertFrom(segment));
 
-        // BadgeType.Unknown carries no [EnumMember], so CreateEnumDictionary keys it under "".
+        // BadgeType.Unknown には [EnumMember] が付いていないため、CreateEnumDictionary は "" をキーにする。
         [Fact]
         public void EmptySegment_BindsToUnknown()
             => Assert.Equal(BadgeType.Unknown, TypeDescriptor.GetConverter(typeof(BadgeType)).ConvertFrom(""));

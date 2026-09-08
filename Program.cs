@@ -22,9 +22,9 @@ namespace VSMarketplaceBadges
         {
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
-            // Sink failures (bad IAM role, bucket policy change, region outage) are swallowed by
-            // PeriodicBatchingSink otherwise -- the app keeps serving badges while log shipping is
-            // dead. SelfLog is the 1.7.0 replacement for the removed AmazonS3Options.FailureCallback.
+            // これがないと、シンクの障害 (IAM ロールの不備、バケットポリシー変更、リージョン障害) は
+            // PeriodicBatchingSink に握りつぶされ、ログ転送が死んだままバッジ配信だけが続いてしまう。
+            // SelfLog は 1.7.0 で削除された AmazonS3Options.FailureCallback の代替。
             Serilog.Debugging.SelfLog.Enable(Console.Error);
 
             var logConf = new LoggerConfiguration()
@@ -53,9 +53,9 @@ namespace VSMarketplaceBadges
         }
 
         /// <summary>
-        /// Serilog ignores the <c>Logging:LogLevel</c> section that ASP.NET Core uses, so the minimum
-        /// level is resolved here from <c>Serilog:MinimumLevel</c> (appsettings, or the
-        /// <c>Serilog__MinimumLevel</c> environment variable) and falls back to a per-environment default.
+        /// Serilog は ASP.NET Core が使う <c>Logging:LogLevel</c> セクションを無視するため、最小ログレベルは
+        /// ここで <c>Serilog:MinimumLevel</c> (appsettings、または環境変数 <c>Serilog__MinimumLevel</c>) から
+        /// 解決し、未設定なら環境ごとの既定値にフォールバックする。
         /// </summary>
         private static LogEventLevel ResolveMinimumLevel(string env)
         {
