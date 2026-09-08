@@ -72,7 +72,7 @@ namespace VSMarketplaceBadges.Services
                 catch (Exception ex)
                 {
                     ex.Data.Add("json", await result.Content.ReadAsStringAsync());
-                    throw ex;
+                    throw;
                 }
 
             }

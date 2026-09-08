@@ -330,3 +330,5 @@ ASALocalRun/
 .mfractor/
 
 logs
+# Test results
+[Tt]est[Rr]esults/

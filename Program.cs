@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
@@ -18,9 +20,16 @@ namespace VSMarketplaceBadges
     {
         public static int Main(string[] args)
         {
-            var logConf = new LoggerConfiguration()
-                .Enrich.FromLogContext();
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+            // Sink failures (bad IAM role, bucket policy change, region outage) are swallowed by
+            // PeriodicBatchingSink otherwise -- the app keeps serving badges while log shipping is
+            // dead. SelfLog is the 1.7.0 replacement for the removed AmazonS3Options.FailureCallback.
+            Serilog.Debugging.SelfLog.Enable(Console.Error);
+
+            var logConf = new LoggerConfiguration()
+                .MinimumLevel.ControlledBy(new LoggingLevelSwitch(ResolveMinimumLevel(env)))
+                .Enrich.FromLogContext();
             if (env == Microsoft.Extensions.Hosting.Environments.Development)
                 logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
             else if (env == Microsoft.Extensions.Hosting.Environments.Production)
@@ -41,6 +50,28 @@ namespace VSMarketplaceBadges
             {
                 Log.CloseAndFlush();
             }
+        }
+
+        /// <summary>
+        /// Serilog ignores the <c>Logging:LogLevel</c> section that ASP.NET Core uses, so the minimum
+        /// level is resolved here from <c>Serilog:MinimumLevel</c> (appsettings, or the
+        /// <c>Serilog__MinimumLevel</c> environment variable) and falls back to a per-environment default.
+        /// </summary>
+        private static LogEventLevel ResolveMinimumLevel(string env)
+        {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                .AddJsonFile($"appsettings.{env}.json", optional: true, reloadOnChange: false)
+                .AddEnvironmentVariables()
+                .Build();
+
+            if (Enum.TryParse<LogEventLevel>(configuration["Serilog:MinimumLevel"], ignoreCase: true, out var level))
+                return level;
+
+            return env == Microsoft.Extensions.Hosting.Environments.Development
+                ? LogEventLevel.Debug
+                : LogEventLevel.Information;
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -64,7 +95,6 @@ namespace VSMarketplaceBadges
                 FormatProvider = null,
                 RollingInterval = RollingInterval.Hour,
                 Encoding = Encoding.UTF8,
-                FailureCallback = null,
                 BucketPath = null
             };
 
