@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using VSMarketplaceBadges.Utility;
 
 namespace VSMarketplaceBadges.Entity
 {
@@ -7,7 +8,8 @@ namespace VSMarketplaceBadges.Entity
     {
         public VSMarketplaceItem(VSMarketplaceItemRaw raw)
         {
-            Version = $"v{raw.Versions.Max(x => x.Version)}";
+            // 数値部をセグメントごとに数値比較する必要があるため、序数比較ではなく semver 比較で最大版を選ぶ。
+            Version = $"v{raw.Versions.Select(x => x.Version).Max(SemanticVersionComparer.Instance)}";
             foreach (var statistic in raw.Statistics)
             {
                 switch (statistic.StatisticName)

@@ -11,6 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Name the solution explicitly: bare `dotnet test` in a directory with no test
+      # project restores nothing, runs nothing, and still exits 0 -- a silently green gate.
+      - name: Test
+        run: dotnet test VSMarketplaceBadges.sln --configuration Release
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:

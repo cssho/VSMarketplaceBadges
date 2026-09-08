@@ -1,0 +1,45 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{json,yml,yaml,html,csproj}]
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+
+# Namespace / using layout — matches existing files (block-scoped namespaces, usings inside file scope)
+csharp_using_directive_placement = outside_namespace:warning
+csharp_style_namespace_declarations = block_scoped:warning
+
+# Private fields are lowercase with no underscore prefix, and are assigned via `this.x = x`
+dotnet_naming_rule.private_fields_camel_case.severity = warning
+dotnet_naming_rule.private_fields_camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_camel_case.style = camel_case_no_prefix
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.camel_case_no_prefix.capitalization = camel_case
+dotnet_naming_style.camel_case_no_prefix.required_prefix =
+
+# Expression-bodied members are used freely in this codebase
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:silent
+
+# `var` usage in this codebase is mixed; do not churn existing code over it
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_style_var_elsewhere = false:silent
+
+# Braces
+csharp_new_line_before_open_brace = all
+csharp_prefer_braces = when_multiline:silent
+
+# Unused usings — flag, do not error (several files carry unused ones today)
+dotnet_diagnostic.IDE0005.severity = suggestion

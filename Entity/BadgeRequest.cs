@@ -4,17 +4,6 @@ using Microsoft.Net.Http.Headers;
 
 namespace VSMarketplaceBadges.Entity
 {
-    public class BadgeRequest2
-    {
-        //[FromRoute]
-        public BadgeType BadgeType { get; set; }
-
-        //[FromRoute]
-        public string ItemName { get; set; }
-
-        //[FromRoute]
-        public ImageExt ImageExt { get; set; } = ImageExt.Svg;
-    }
     public class BadgeRequest
     {
         private const string InstallsSubject = "installs";

@@ -27,7 +27,7 @@ namespace VSMarketplaceBadges
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        // このメソッドはランタイムから呼ばれる。DI コンテナへのサービス登録はここで行う。
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers()
@@ -67,7 +67,7 @@ namespace VSMarketplaceBadges
             });
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        // このメソッドはランタイムから呼ばれる。HTTP リクエストパイプラインの構成はここで行う。
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseErrorHandling();
