@@ -40,6 +40,7 @@ namespace VSMarketplaceBadges
             // 判定は環境変数 AWS_LAMBDA_FUNCTION_NAME の有無なので、ローカル実行や App Runner では
             // 何も起きない。Function URL のペイロードは v2 形式なので HttpApi を指定する。
             services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
+            RegisterSnapshotWarmup(services);
 
             services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>(x =>
             {
@@ -75,6 +76,43 @@ namespace VSMarketplaceBadges
                 options.OutputFormatters.Insert(0, new ImageOutputFormatter());
             });
         }
+
+        /// <summary>
+        /// SnapStart のスナップショットを取る前に流しておくリクエスト。
+        /// </summary>
+        /// <remarks>
+        /// SnapStart は「初期化のやり直し」を省くだけで、.NET のティアード コンパイルまでは
+        /// 肩代わりしない。実測でも復元自体は速い (Restore 752ms) のに復元直後の実行が
+        /// 1177ms かかっており、JIT が残っていた。ここでパイプラインを一度通しておくと、
+        /// JIT 済みのコードごとスナップショットに焼き込める。
+        ///
+        /// 流すのは**外部通信を伴わない経路だけ**にしている。実在するバッジの URL を
+        /// 温めると、
+        ///   1. スナップショット作成が Marketplace / shields.io の生存に依存し、
+        ///      上流障害がそのままデプロイ失敗 (バージョン発行の失敗) になる
+        ///   2. プロセス内キャッシュに載った応答がスナップショットに焼き込まれ、
+        ///      復元された全環境が同じ古いバッジを持って起動する
+        /// という二つの副作用がある。割に合わないので温めない。
+        ///
+        /// 反復回数はランタイムに最適化を促すため。ただし INIT フェーズには 10 秒の上限が
+        /// あるので、外部通信のない軽い経路に限る前提で増やしすぎないこと。
+        /// https://aws.amazon.com/blogs/dotnet/blog-improving-snapstart-performance-in-net-lambdas/
+        /// </remarks>
+        private static void RegisterSnapshotWarmup(IServiceCollection services)
+        {
+            for (var i = 0; i < WarmupIterations; i++)
+            {
+                // 静的ファイル配信の経路 (wwwroot/index.html)。
+                services.AddAWSLambdaBeforeSnapshotRequest(new HttpRequestMessage(HttpMethod.Get, "/"));
+
+                // ルーティング → CustomEnumConverter によるモデルバインド → BadgeController の
+                // 入り口までを通す。未知のバッジタイプなので 400 で折り返し、外部には出ない。
+                services.AddAWSLambdaBeforeSnapshotRequest(
+                    new HttpRequestMessage(HttpMethod.Get, "/warmup/warmup.svg"));
+            }
+        }
+
+        private const int WarmupIterations = 8;
 
         // 外部呼び出しの時間予算。App Runner 時代は 4 回 × 3^n 秒 (最大 120 秒) 待ち、
         // タイムアウトも 5 分だったが、Lambda では待機時間がそのまま課金される。
