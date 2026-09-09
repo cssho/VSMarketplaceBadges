@@ -1,0 +1,8 @@
+# .terraform.lock.hcl はプロバイダー版数を固定するのでコミットする (ここでは無視しない)。
+.terraform/
+.terraform-artifacts/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+backend.hcl
+crash.log

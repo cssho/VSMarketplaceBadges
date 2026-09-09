@@ -1,0 +1,96 @@
+name: Deploy Lambda
+
+# App Runner 用の push-ecr.yml とは併存させている。移行期間中は master への push で
+# 両方が動き、App Runner を切り戻し可能な状態のまま最新に保つ。
+# DNS 切り替えが定着したら push-ecr.yml と Dockerfile ごと削除する。
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-1
+  FUNCTION_NAME: vsmarketplace-badges
+  ALIAS_NAME: live
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # ソリューションを明示する。テストプロジェクトのないディレクトリで素の dotnet test を
+      # 実行すると、何も復元せず何も実行せずに exit 0 する = 黙って緑になるゲートになるため。
+      - name: Test
+        run: dotnet test VSMarketplaceBadges.sln --configuration Release
+
+      # リポジトリルートに .sln と .csproj が両方あるので、プロジェクトの明示が必須。
+      # 省略すると MSBuild が曖昧さでエラーになる。
+      - name: Publish
+        run: dotnet publish VSMarketplaceBadges.csproj -c Release -o ./publish
+
+      - name: Package
+        run: cd publish && zip -r ../lambda.zip . -x '*.pdb'
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update function code
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://lambda.zip \
+            --no-cli-pager
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+
+      # SnapStart は $LATEST では働かない。バージョンを発行した時点で Init が走り
+      # スナップショットが取られるので、公開経路は必ずエイリアス越しにする。
+      #
+      # SnapStart 有効時、publish-version は State=Pending のまますぐ返り、スナップショット
+      # 作成は数分かかる非同期処理になる。待たずにエイリアスを付け替えると、その間の呼び出しが
+      # SnapStartNotReadyException (5xx) になる窓ができるため、必ず Active を待つ。
+      - name: Publish version
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name "$FUNCTION_NAME" \
+            --query Version --output text --no-cli-pager)
+          echo "Published version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          aws lambda wait published-version-active \
+            --function-name "$FUNCTION_NAME" \
+            --qualifier "$VERSION"
+
+      - name: Shift alias
+        run: |
+          aws lambda update-alias \
+            --function-name "$FUNCTION_NAME" \
+            --name "$ALIAS_NAME" \
+            --function-version "${{ steps.publish.outputs.version }}" \
+            --no-cli-pager
+
+      # バッジは CloudFront に最大 1 時間キャッシュされる。デプロイ直後から新しい挙動を
+      # 見せたいので、切り替えのたびに無効化する (月 1000 パスまで無料)。
+      #
+      # 未設定を if でスキップすると、ジョブは緑のまま旧バッジが最大 1 時間配信され続ける
+      # 設定漏れに気づけない。設定されていなければ落とす。
+      - name: Invalidate CloudFront
+        run: |
+          if [ -z "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            echo "::error::リポジトリ変数 CLOUDFRONT_DISTRIBUTION_ID が未設定です。terraform output cloudfront_distribution_id の値を設定してください。"
+            exit 1
+          fi
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths '/*' \
+            --no-cli-pager
