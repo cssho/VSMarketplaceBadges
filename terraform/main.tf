@@ -128,3 +128,21 @@ resource "aws_lambda_permission" "cloudfront" {
   source_arn             = aws_cloudfront_distribution.badges.arn
   function_url_auth_type = "AWS_IAM"
 }
+
+# 2025 年 10 月以降に作成した Function URL は lambda:InvokeFunctionUrl だけでは足りず、
+# lambda:InvokeFunction も必要になった。これが無いと CloudFront 経由の全リクエストが
+#   {"Message":"Forbidden. For troubleshooting Function URL authorization issues, ..."}
+# で 403 になる。CloudFront 側のドキュメント (private-content-restricting-access-to-lambda)
+# には InvokeFunctionUrl しか書かれていないので、消さないこと。
+# https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html
+#
+# function_url_auth_type は付けない。この条件キーは InvokeFunctionUrl の評価時にしか
+# 渡らないため、付けると条件不一致でかえって拒否される。
+resource "aws_lambda_permission" "cloudfront_invoke" {
+  statement_id  = "AllowCloudFrontInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.this.function_name
+  qualifier     = aws_lambda_alias.live.name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.badges.arn
+}

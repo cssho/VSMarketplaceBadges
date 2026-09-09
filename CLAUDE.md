@@ -136,8 +136,31 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 - `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
   - `.github/workflows/deploy-lambda.yml` — 新しい配信経路。publish → ZIP →
     `update-function-code` → バージョン発行 → `live` エイリアス付け替え → CloudFront 無効化。
-  - `.github/workflows/push-ecr.yml` — 旧経路 (App Runner)。切り戻し先を最新に保つために残してある。
+    認証は **OIDC** (`vars.AWS_DEPLOY_ROLE_ARN`)。長期アクセスキーは使わないので、
+    `permissions: id-token: write` を消すとロールを引き受けられなくなる。
+  - `.github/workflows/push-ecr.yml` — 旧経路 (App Runner)。ECR への push までは成功するが、
+    **App Runner のデプロイは必ずロールバックする** (下記)。こちらは今も長期アクセスキー
+    (`secrets.AWS_ACCESS_KEY_ID`) を使う。撤去時に鍵ごと消す。
 - CloudFront は Lambda の **`live` エイリアス**を向いている。`$LATEST` は公開経路ではなく、
   SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
   配信内容が変わらない。
 - DNS 切り替えが定着したら `push-ecr.yml` / `Dockerfile` / ECR / App Runner を撤去する。
+
+### App Runner は .NET 8 のコードをデプロイできない (対処しないと決めた既知の状態)
+
+App Runner サービスは**ポート 80** を待ち受ける設定だが、`mcr.microsoft.com/dotnet/aspnet:8.0`
+の既定ポートは **8080** (.NET 8 で 80 から変更された)。コンテナは 8080 で listen するため
+TCP ヘルスチェックが通らず、デプロイは毎回 `ROLLBACK_SUCCEEDED` で 2022 年のイメージに戻る。
+
+その結果:
+
+- **App Runner が配信しているのは 2022 年のコード**。.NET 8 移行も semver 修正も
+  フォールバックバッジも入っていない。バージョンバッジが `v2.23.2` を返すのは
+  序数比較のままだから (正しくは `v2.151.28`)。
+- したがって **App Runner は「動くが 4 年前の挙動」の切り戻し先**でしかない。
+  `terraform/README.md` のロールバック手順はこの前提で読むこと。
+- Lambda 経路は HTTP ポートを使わない (ランタイム API 経由) ため影響を受けない。
+
+直すなら `Dockerfile` に `ENV ASPNETCORE_HTTP_PORTS=80` を足すだけだが、App Runner は
+まもなく撤去するため**意図的に対処しない**と判断した。`master` への push で
+`Push Amazon ECR` が緑になり App Runner がロールバックするのは想定内であり、調査不要。

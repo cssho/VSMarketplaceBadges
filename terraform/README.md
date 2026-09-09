@@ -54,7 +54,15 @@ SnapStart はここではまだ切ったままにする。SnapStart はバージ
 | 設定先 | キー | 値 |
 | --- | --- | --- |
 | Variables | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id` |
-| Secrets | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 既存のものを流用 |
+| Variables | `AWS_DEPLOY_ROLE_ARN` | `github_actions_role_arn` |
+
+`deploy-lambda.yml` は**長期のアクセスキーを使わない**。実行ごとに発行される OIDC トークンで
+`github-oidc.tf` が作るロールを引き受ける。Secrets は不要。
+
+ロールの信頼ポリシーは `repo:<owner>/<repo>:ref:refs/heads/master` に固定してある
+(`var.github_deploy_refs`)。別ブランチから手動実行したくなったらこの変数に足す。
+ここを緩めると同じ GitHub OIDC を使う任意のリポジトリから引き受けられてしまうので、
+`repo:*` のような書き方はしないこと。
 
 ### 3. 実コードを載せる
 
@@ -122,13 +130,22 @@ Route 53 のレコードが CloudFront への ALIAS になる。TTL は 60 秒�
 **ロールバック** — App Runner はまだ動いているので、`enable_dns_cutover=false` で apply し直せば
 戻る (`apprunner_service_url` を設定してあれば App Runner 向き CNAME が復元される)。
 
+> ⚠️ **切り戻し先は 2022 年のコードを配信する。**
+> App Runner はポート 80 待ち受け、`aspnet:8.0` イメージの既定は 8080 のため、.NET 8 移行以降の
+> デプロイはすべてヘルスチェックに失敗して `ROLLBACK_SUCCEEDED` で巻き戻っている。
+> 切り戻すと semver 修正前のバージョン表示 (`v2.23.2` など) に戻り、上流障害時の
+> フォールバックバッジも効かない。**「配信は止まらないが挙動は 4 年前」**と理解しておくこと。
+> 対処しないと判断した経緯は CLAUDE.md を参照。
+
 ### 移行完了後の後片付け
 
 DNS 切り替えが定着したら:
 
 1. App Runner サービスを削除
 2. `.github/workflows/push-ecr.yml` と `Dockerfile` を削除 (ローカル開発は `dotnet watch run`)
-3. ECR リポジトリを削除
+3. ECR リポジトリを削除。これで長期アクセスキーの利用者がいなくなるので、IAM ユーザー
+   `for-github-actions` とそのアクセスキー、Secrets の `AWS_ACCESS_KEY_ID` /
+   `AWS_SECRET_ACCESS_KEY` / `AWS_ECR_REPO_NAME` も削除する
 4. S3 の `vsmarketplace-badges/logs` を必要に応じて削除 (ログ出力先は CloudWatch に移行済み)
 
 ## タイムアウトの予算
