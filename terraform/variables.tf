@@ -47,15 +47,15 @@ variable "log_retention_days" {
 
 variable "enable_snapstart" {
   description = <<-EOT
-    SnapStart を有効にするか。.NET のコールドスタートを大幅に縮める。
+    SnapStart を有効にするか。.NET のコールドスタートを縮める。
 
-    既定を false にしてあるのは、SnapStart がバージョン発行時に Init を実行して
-    スナップショットを取るためで、まだ実コードが載っていないプレースホルダー ZIP のまま
-    true にすると初回 apply がバージョン発行で失敗する。実コードを CI でデプロイしたあと
-    true に上げる。手順は README.md を参照。
+    既定は稼働中の状態に合わせた true。**新しい環境をゼロから構築するときの初回 apply だけ**
+    false にすること。SnapStart はバージョン発行時に Init を実行してスナップショットを取るため、
+    まだ実コードが載っていないプレースホルダー ZIP のままだと発行に失敗する。
+    手順は README.md「初回構築」を参照。
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "price_class" {
@@ -74,20 +74,23 @@ variable "enable_custom_domain" {
 
     ACM の DNS 検証は権威 DNS を見るため、NS を移管するより先にこれを通しておく必要がある。
     検証用 CNAME は Gandi に手動で追加する (README.md の手順)。
+
+    移管は完了済みなので既定は true。**false に倒すと本番の証明書が消えて配信が止まる。**
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "manage_dns" {
   description = <<-EOT
-    Route 53 にホストゾーンとレコード一式を作る。レジストラ (Gandi) の NS を
-    Route 53 に向けるまでは誰も参照しないので、先に作って中身を突き合わせられる。
+    Route 53 にホストゾーンとレコード一式を作る。
 
-    実際の切り替えは Terraform ではなく **Gandi 側の NS 変更**。
+    移管は完了済みで、このゾーンが vsmarketplacebadges.dev の権威。既定は true。
+    **false に倒すとホストゾーンごと消え、バッジ配信もメールも止まる。**
+    段階移行のために false から始めた経緯は README.md を参照。
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "rollback_to_apprunner" {
