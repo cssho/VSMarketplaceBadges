@@ -6,13 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
-using Amazon;
-using Serilog.Configuration;
 using Serilog.Core;
-using System.Text;
-using Serilog.Sinks.AmazonS3;
-using RollingInterval = Serilog.Sinks.AmazonS3.RollingInterval;
-using Serilog.Sinks.PeriodicBatching;
 
 namespace VSMarketplaceBadges
 {
@@ -22,19 +16,18 @@ namespace VSMarketplaceBadges
         {
             string env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
-            // これがないと、シンクの障害 (IAM ロールの不備、バケットポリシー変更、リージョン障害) は
-            // PeriodicBatchingSink に握りつぶされ、ログ転送が死んだままバッジ配信だけが続いてしまう。
-            // SelfLog は 1.7.0 で削除された AmazonS3Options.FailureCallback の代替。
+            // シンクの障害を stderr に出す。stdout シンクのみになった現在も、Serilog 内部の
+            // 設定ミス (フォーマッタ例外など) を黙って握りつぶさないために残している。
             Serilog.Debugging.SelfLog.Enable(Console.Error);
 
-            var logConf = new LoggerConfiguration()
+            // シンクは環境によらず stdout。Lambda / App Runner とも stdout をそのまま
+            // CloudWatch Logs に転送するため、アプリ側が AWS SDK を持つ必要はない。
+            // 保持期間とコストは CloudWatch のロググループ側 (terraform/main.tf) で制御する。
+            Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.ControlledBy(new LoggingLevelSwitch(ResolveMinimumLevel(env)))
-                .Enrich.FromLogContext();
-            if (env == Microsoft.Extensions.Hosting.Environments.Development)
-                logConf.WriteTo.Console(new RenderedCompactJsonFormatter());
-            else if (env == Microsoft.Extensions.Hosting.Environments.Production)
-                AmazonS3(logConf.WriteTo, "logs/app.log", "vsmarketplace-badges/logs", RegionEndpoint.APNortheast1);
-            Log.Logger = logConf.CreateLogger();
+                .Enrich.FromLogContext()
+                .WriteTo.Console(new RenderedCompactJsonFormatter())
+                .CreateLogger();
             Log.Information($"env:{env}");
             try
             {
@@ -81,35 +74,5 @@ namespace VSMarketplaceBadges
                 {
                     webBuilder.UseStartup<Startup>();
                 });
-
-        public static LoggerConfiguration AmazonS3(LoggerSinkConfiguration sinkConfiguration, string path, string bucketName, RegionEndpoint endpoint)
-        {
-
-
-            var options = new AmazonS3Options
-            {
-                Path = path,
-                BucketName = bucketName,
-                Endpoint = endpoint,
-                OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                FormatProvider = null,
-                RollingInterval = RollingInterval.Hour,
-                Encoding = Encoding.UTF8,
-                BucketPath = null
-            };
-
-            var amazonS3Sink = new AmazonS3Sink(options);
-
-            var batchingOptions = new PeriodicBatchingSinkOptions
-            {
-                BatchSizeLimit = 5000,
-                Period = TimeSpan.FromSeconds(5),
-                EagerlyEmitFirstEvent = true,
-                QueueLimit = 10000
-            };
-
-            var batchingSink = new PeriodicBatchingSink(amazonS3Sink, batchingOptions);
-            return sinkConfiguration.Sink(batchingSink, LevelAlias.Minimum, null);
-        }
     }
 }

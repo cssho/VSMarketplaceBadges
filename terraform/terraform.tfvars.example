@@ -1,0 +1,29 @@
+# terraform.tfvars.example
+# コピーして terraform.tfvars を作る (terraform.tfvars は .gitignore 済み)。
+
+region        = "ap-northeast-1"
+function_name = "vsmarketplace-badges"
+
+# --- 段階移行のスイッチ -----------------------------------------------------
+# フェーズ 1 (土台構築): 両方 false のまま。CloudFront の既定ドメインで動作確認する。
+# フェーズ 2 (証明書付与): enable_custom_domain = true。DNS はまだ App Runner のまま。
+# フェーズ 3 (切り替え)  : enable_dns_cutover = true。ここで本番トラフィックが移る。
+enable_custom_domain = false
+enable_dns_cutover   = false
+
+# フェーズ 2 以降で必須
+# domain_name     = "badges.example.com"
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"
+
+# 切り戻し先として Terraform に App Runner 向きレコードも管理させる場合に指定する。
+# 空のままなら既存レコードには一切触らない。
+# apprunner_service_url = "xxxxxxxxxx.ap-northeast-1.awsapprunner.com"
+
+# --- チューニング -----------------------------------------------------------
+lambda_memory_size = 1024
+log_retention_days = 14
+price_class        = "PriceClass_200"
+
+# 初回構築中は false のまま。実コードを CI でデプロイしてから true に上げる
+# (プレースホルダー ZIP のままだとバージョン発行に失敗する)。README.md の手順を参照。
+enable_snapstart = false

@@ -53,11 +53,15 @@ ASP.NET Core が通常使う `Logging:LogLevel` セクションはここでは�
 `Serilog:MinimumLevel` (または環境変数 `Serilog__MinimumLevel`) で、既定値は Development で
 `Debug`、それ以外では `Information`。
 
-シンクは `ASPNETCORE_ENVIRONMENT` で選択される: Development → コンソール、Production → Amazon S3
-(`vsmarketplace-badges/logs`, ap-northeast-1)。それ以外の値では**シンクが一切設定されない**。
+シンクは環境によらず stdout の 1 本だけ。Lambda / App Runner とも stdout をそのまま
+CloudWatch Logs に転送するため、アプリ側は AWS SDK を持たない。保持期間とコストは
+CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 
-`SelfLog` はシンクの障害を stderr に出力する。これがないとバッチングシンクが S3 のエラーを
-握りつぶし、ログ転送が死んだままバッジ配信だけが続いてしまう。
+以前は Production のみ Amazon S3 (`vsmarketplace-badges/logs`) に送っていたが、Lambda 移行に
+伴い廃止した (`Serilog.Sinks.AmazonS3` 参照ごと削除)。
+
+`SelfLog` は Serilog 内部の障害を stderr に出力する。stdout シンクのみになった現在も、
+フォーマッタ例外などを黙って握りつぶさないために残している。
 
 ## 分散キャッシュは意図的に未接続
 
@@ -86,10 +90,39 @@ ASP.NET Core が通常使う `Logging:LogLevel` セクションはここでは�
 - private フィールドはアンダースコア接頭辞なしの小文字始まり (`private readonly ILogger logger;`)。
 - 外部への HTTP は `Startup.cs` で Polly のリトライ/タイムアウトポリシー付きに登録した
   型付き `HttpClient` を経由する。新しい外部呼び出しも `HttpClient` を直接 new せず同じ方式で追加する。
+  ポリシーは `RetryPolicy()` / `PerAttemptTimeoutPolicy()` に切り出してあるので、両クライアントで共有すること。
 - コメント (`//` と XML ドキュメントコメントの両方) は日本語で書く。
 
-## リポジトリ運用ルール
+## タイムアウトの予算 (3 か所が連動)
+
+Lambda では待機時間がそのまま課金される。以下は 1 つだけ変えてはいけない:
+
+| 層 | 値 | 場所 |
+| --- | --- | --- |
+| 外部 HTTP 1 呼び出し (ハードキャップ) | 10 秒 | `Startup.cs` の `TotalTimeoutPolicy` |
+| 1 リクエスト最悪 | 30 秒 | Marketplace 10×2 + shields.io 10 |
+| Lambda | 35 秒 | `terraform/variables.tf` の `lambda_timeout` |
+| CloudFront オリジン応答 | 40 秒 | `terraform/variables.tf` の `origin_read_timeout` |
+
+`VSMarketplaceService.LoadVsmItemDataFromApi` は失敗時に `CoreRequest` をもう一度呼ぶため、
+Marketplace 側は shields.io 側の 2 倍かかる。予算を計算するときはこれを忘れないこと。
+
+Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptTimeoutPolicy` の順に
+登録して外側から重ねる。`PerAttemptTimeoutPolicy` が投げる `TimeoutRejectedException` は
+`HttpRequestException` ではないので、`RetryPolicy` の `.Or<TimeoutRejectedException>()` を
+外すとタイムアウトがリトライされずそのまま 500 になる。
+
+## デプロイ (移行期間中は 2 系統が並走)
+
+インフラは `terraform/` に Terraform で定義してある。段階移行の手順・フラグ・ロールバックは
+`terraform/README.md` を参照。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
-- `master` への push は `.github/workflows/push-ecr.yml` を起動し、Dockerfile をビルドして
-  `:latest` を Amazon ECR (ap-northeast-1) に push する。`master` へのマージは本番デプロイに等しい。
+- `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
+  - `.github/workflows/deploy-lambda.yml` — 新しい配信経路。publish → ZIP →
+    `update-function-code` → バージョン発行 → `live` エイリアス付け替え → CloudFront 無効化。
+  - `.github/workflows/push-ecr.yml` — 旧経路 (App Runner)。切り戻し先を最新に保つために残してある。
+- CloudFront は Lambda の **`live` エイリアス**を向いている。`$LATEST` は公開経路ではなく、
+  SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
+  配信内容が変わらない。
+- DNS 切り替えが定着したら `push-ecr.yml` / `Dockerfile` / ECR / App Runner を撤去する。
