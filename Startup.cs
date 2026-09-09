@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
@@ -62,6 +63,11 @@ namespace VSMarketplaceBadges
                 }).AddPolicyHandler(TotalTimeoutPolicy())
                 .AddPolicyHandler(RetryPolicy())
                 .AddPolicyHandler(PerAttemptTimeoutPolicy());
+            // 上流障害時の代替バッジ。wwwroot から一度だけ読むので Singleton。
+            services.AddSingleton<IFallbackBadgeService>(sp => new FallbackBadgeService(
+                sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider,
+                sp.GetRequiredService<ILogger<FallbackBadgeService>>()));
+
             services.AddResponseCaching();
 
             services.AddMvc(options =>

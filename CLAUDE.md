@@ -63,6 +63,21 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 `SelfLog` は Serilog 内部の障害を stderr に出力する。stdout シンクのみになった現在も、
 フォーマッタ例外などを黙って握りつぶさないために残している。
 
+## 上流障害時のフォールバック
+
+`BadgeController` は Marketplace API と shields.io の呼び出しをそれぞれ try で囲み、
+どちらが落ちても `wwwroot/unavailable.{svg,png}` を 200 で返す。README に貼られたバッジが
+壊れた画像アイコンにならないようにするため。同梱物すら読めないときだけ 503。
+
+- 同梱バッジは shields.io で実際に生成したものをそのまま置いてある (見た目を本物と揃えるため)。
+  差し替えるときは `https://img.shields.io/badge/VS%20Marketplace-unavailable-lightgrey.{svg,png}` から取り直す。
+- `FallbackBadgeService` は Singleton で、起動時に一度だけ wwwroot から読んでメモリに持つ。
+  フォールバックが要る場面は上流障害中なので、そこでディスクを触らせない。
+- フォールバック時は `Cache-Control` を 60 秒に上書きする。既定の 3600 秒のままだと、
+  上流が復旧しても最大 1 時間 CloudFront に unavailable バッジが残り続ける。
+- `ToBadgeValue` は意図的に try の外に置いてある。ここでの例外は自前ロジックの不具合なので、
+  フォールバックで覆い隠さず 500 として表に出す。
+
 ## 分散キャッシュは意図的に未接続
 
 `UseCacheService` は `IDistributedCache` を注入しているが、`Startup.cs` では分散キャッシュを
