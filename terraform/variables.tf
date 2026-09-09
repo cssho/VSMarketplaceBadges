@@ -108,6 +108,23 @@ variable "apprunner_service_url" {
   default     = ""
 }
 
+variable "github_repository" {
+  description = "OIDC でデプロイロールを引き受けさせる GitHub リポジトリ (owner/repo)。"
+  type        = string
+  default     = "cssho/VSMarketplaceBadges"
+}
+
+variable "github_deploy_refs" {
+  description = <<-EOT
+    デプロイロールの引き受けを許可する ref。信頼ポリシーの sub をここまで絞る。
+    deploy-lambda.yml は master への push と workflow_dispatch で動くが、
+    workflow_dispatch は既定ブランチ上のワークフローしか一覧に出ないため master だけで足りる。
+    別ブランチから手動実行したくなったらここに足す。
+  EOT
+  type        = list(string)
+  default     = ["refs/heads/master"]
+}
+
 variable "tags" {
   description = "全リソースに付与するタグ。"
   type        = map(string)

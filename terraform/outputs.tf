@@ -28,6 +28,11 @@ output "log_group_name" {
   value       = aws_cloudwatch_log_group.lambda.name
 }
 
+output "github_actions_role_arn" {
+  description = "GitHub Actions の変数 AWS_DEPLOY_ROLE_ARN に設定する値。"
+  value       = aws_iam_role.github_actions.arn
+}
+
 output "acm_certificate_arn" {
   description = "CloudFront に付けた ACM 証明書 (us-east-1)。独自ドメイン未使用なら null。"
   value       = var.enable_custom_domain ? aws_acm_certificate_validation.this[0].certificate_arn : null

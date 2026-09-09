@@ -13,6 +13,12 @@ env:
   FUNCTION_NAME: vsmarketplace-badges
   ALIAS_NAME: live
 
+# OIDC トークンの発行に必須。これが無いと configure-aws-credentials が
+# ロールを引き受けられない。
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -38,11 +44,13 @@ jobs:
       - name: Package
         run: cd publish && zip -r ../lambda.zip . -x '*.pdb'
 
+      # 長期のアクセスキーは使わない。実行ごとに発行される短命の OIDC トークンで
+      # Terraform が作ったデプロイ用ロールを引き受ける。ロールの信頼ポリシーは
+      # このリポジトリの master ref に限定してある (terraform/github-oidc.tf)。
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Update function code

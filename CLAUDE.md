@@ -136,7 +136,10 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 - `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
   - `.github/workflows/deploy-lambda.yml` — 新しい配信経路。publish → ZIP →
     `update-function-code` → バージョン発行 → `live` エイリアス付け替え → CloudFront 無効化。
+    認証は **OIDC** (`vars.AWS_DEPLOY_ROLE_ARN`)。長期アクセスキーは使わないので、
+    `permissions: id-token: write` を消すとロールを引き受けられなくなる。
   - `.github/workflows/push-ecr.yml` — 旧経路 (App Runner)。切り戻し先を最新に保つために残してある。
+    こちらは今も長期アクセスキー (`secrets.AWS_ACCESS_KEY_ID`) を使う。撤去時に鍵ごと消す。
 - CloudFront は Lambda の **`live` エイリアス**を向いている。`$LATEST` は公開経路ではなく、
   SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
   配信内容が変わらない。
