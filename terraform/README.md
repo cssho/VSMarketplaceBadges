@@ -130,6 +130,13 @@ Route 53 のレコードが CloudFront への ALIAS になる。TTL は 60 秒�
 **ロールバック** — App Runner はまだ動いているので、`enable_dns_cutover=false` で apply し直せば
 戻る (`apprunner_service_url` を設定してあれば App Runner 向き CNAME が復元される)。
 
+> ⚠️ **切り戻し先は 2022 年のコードを配信する。**
+> App Runner はポート 80 待ち受け、`aspnet:8.0` イメージの既定は 8080 のため、.NET 8 移行以降の
+> デプロイはすべてヘルスチェックに失敗して `ROLLBACK_SUCCEEDED` で巻き戻っている。
+> 切り戻すと semver 修正前のバージョン表示 (`v2.23.2` など) に戻り、上流障害時の
+> フォールバックバッジも効かない。**「配信は止まらないが挙動は 4 年前」**と理解しておくこと。
+> 対処しないと判断した経緯は CLAUDE.md を参照。
+
 ### 移行完了後の後片付け
 
 DNS 切り替えが定着したら:
