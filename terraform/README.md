@@ -6,7 +6,7 @@ App Runner がメンテナンスモードに入った (2026/4/30 以降は新規
 ## 構成
 
 ```
-Route 53 (独自ドメイン)
+Route 53 (apex: vsmarketplacebadges.dev)
   └─ CloudFront                         ACM 証明書は us-east-1
        ├─ Cache Policy: クエリ文字列を全てキャッシュキーに含める ★
        ├─ TTL 3600 (オリジンの [ResponseCache(Duration = 3600)] に合わせる)
@@ -80,73 +80,144 @@ terraform apply -var='enable_snapstart=true'
 
 ## 段階移行の手順
 
-`enable_custom_domain` と `enable_dns_cutover` の 2 つのフラグで進める。
-App Runner は削除せず動かしたまま進め、フェーズ 3 を切り戻せる状態を保つ。
+対象は **apex ドメイン** `vsmarketplacebadges.dev`。DNS は元々 **Gandi LiveDNS** にあり、
+apex は Gandi の ALIAS で App Runner を指していた。これを Route 53 に移管する。
+
+apex は CNAME が使えず、CloudFront には固定 IP が無いので ALIAS が必須。
+**実際の切り替えは Terraform ではなく Gandi のレジストラ設定で NS を変える操作**になる。
+
+### 切り戻しは DNS ではなくオリジン切替で行う
+
+apex を App Runner に戻す DNS 手段が存在しない。Route 53 で App Runner を ALIAS ターゲットに
+できるのは **2022-08-01 以降に作成されたサービスだけ**で、このサービスは 2022-05-06 作成のため
+対象外。そこで DNS は常に CloudFront を指したままにし、CloudFront のオリジンを差し替える。
+
+```
+apex A/AAAA ALIAS → CloudFront  (固定・変更しない)
+                      ├─ origin = Lambda Function URL    ← 通常
+                      └─ origin = App Runner 既定ドメイン ← 切り戻し
+```
+
+```bash
+terraform apply -var='rollback_to_apprunner=true'    # 切り戻し
+terraform apply                                       # 復帰
+```
+
+DNS の TTL に左右されず、反映は CloudFront の伝播 (数分) だけで済む。
+ただし切り戻し先の App Runner は **2022 年のコードを配信する** (CLAUDE.md 参照)。
 
 ### フェーズ 1 — 裏で検証
 
-「初回構築」の手順 4 まで終わっていること (実コードが `live` エイリアスに載っていないと
-以下の確認はすべて失敗する)。両フラグとも false のままなので本番トラフィックは App Runner。
-CloudFront の既定ドメインで動作確認する:
+「初回構築」の手順 4 まで終わっていること。CloudFront の既定ドメインで動作確認する:
 
 ```bash
 DOMAIN=$(terraform output -raw cloudfront_domain_name)
 curl -s "https://$DOMAIN/version-short/ms-dotnettools.csharp.svg" | head -c 200
 curl -s "https://$DOMAIN/downloads/ms-dotnettools.csharp.svg?color=blue" | head -c 200
-curl -sI "https://$DOMAIN/"                      # index.html が返ること
+curl -sI "https://$DOMAIN/"
 ```
 
 確認したいこと:
 
-- クエリ文字列ごとに別のバッジが返る (`?color=blue` を付けたものと付けないもので中身が違う)
+- クエリ文字列ごとに別のバッジが返る
 - 2 回目以降のレスポンスヘッダーに `X-Cache: Hit from cloudfront` が出る
 - Function URL を直接叩くと 403 になる (`terraform output -raw lambda_function_url`)
 - CloudWatch Logs にログが出ている
 
-### フェーズ 2 — 証明書を付ける
+この時点で本番トラフィックは App Runner のまま。
+
+### フェーズ 2 — 証明書を発行して Gandi で検証する
+
+**NS 移管より先に証明書を通しておく。** ACM の DNS 検証は権威 DNS を見るため、NS が Gandi の
+うちは Route 53 に検証レコードを入れても検証されない。順序を逆にすると、NS を切り替えた瞬間に
+証明書エラーになる。
 
 ```bash
 terraform apply -var='enable_custom_domain=true'
+terraform output acm_validation_records
 ```
 
-ACM 証明書が発行され、CloudFront に独自ドメインが別名として付く。**DNS はまだ App Runner を
-向いたままなので本番トラフィックには影響しない。** 独自ドメイン名で CloudFront に届くかは
-DNS を変えずに確認できる:
+出力された CNAME を **Gandi の DNS に手動で追加**する。発行されると `terraform apply` が完了する
+(`aws_acm_certificate_validation` が発行待ちをする)。
+
+DNS を変えずに独自ドメイン名で CloudFront に届くか確認できる:
 
 ```bash
 DOMAIN=$(terraform output -raw cloudfront_domain_name)
-curl -s --resolve "badges.example.com:443:$(dig +short $DOMAIN | head -1)" \
-  "https://badges.example.com/version-short/ms-dotnettools.csharp.svg" | head -c 200
+curl -s --resolve "vsmarketplacebadges.dev:443:$(dig +short $DOMAIN | head -1)" \
+  "https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg" | head -c 200
 ```
 
-### フェーズ 3 — DNS を切り替える
+### フェーズ 3 — Route 53 にゾーンを作って突き合わせる
 
 ```bash
-terraform apply -var='enable_custom_domain=true' -var='enable_dns_cutover=true'
+terraform apply -var='enable_custom_domain=true' -var='manage_dns=true'
 ```
 
-Route 53 のレコードが CloudFront への ALIAS になる。TTL は 60 秒にしてあるので反映は速い。
+NS はまだ Gandi なので**無影響**。作られたゾーンの中身を Gandi のゾーンファイルと突き合わせる。
 
-**ロールバック** — App Runner はまだ動いているので、`enable_dns_cutover=false` で apply し直せば
-戻る (`apprunner_service_url` を設定してあれば App Runner 向き CNAME が復元される)。
+```bash
+ZONE=$(terraform output -raw route53_zone_id 2>/dev/null || \
+  aws route53 list-hosted-zones-by-name --dns-name vsmarketplacebadges.dev \
+    --query 'HostedZones[0].Id' --output text)
+aws route53 list-resource-record-sets --hosted-zone-id "$ZONE" \
+  --query 'ResourceRecordSets[].[Name,Type,ResourceRecords[].Value,AliasTarget.DNSName]' --output text
+```
 
-> ⚠️ **切り戻し先は 2022 年のコードを配信する。**
-> App Runner はポート 80 待ち受け、`aspnet:8.0` イメージの既定は 8080 のため、.NET 8 移行以降の
-> デプロイはすべてヘルスチェックに失敗して `ROLLBACK_SUCCEEDED` で巻き戻っている。
-> 切り戻すと semver 修正前のバージョン表示 (`v2.23.2` など) に戻り、上流障害時の
-> フォールバックバッジも効かない。**「配信は止まらないが挙動は 4 年前」**と理解しておくこと。
-> 対処しないと判断した経緯は CLAUDE.md を参照。
+**MX と SPF を落とすとメール受信が止まる。** apex の ALIAS 以外はすべて Gandi と同じ内容に
+なっていること。移管対象は以下:
+
+| 名前 | 種別 | 用途 |
+| --- | --- | --- |
+| apex | A/AAAA ALIAS → CloudFront | バッジ配信 (Gandi では App Runner を指していた) |
+| apex | MX | Gandi メール。落とすと受信が止まる |
+| apex | TXT | SPF と Google Search Console |
+| `www` | CNAME | Gandi ウェブリダイレクト |
+| `blog` | CNAME | Gandi ブログ |
+| `webmail` | CNAME | Gandi ウェブメール |
+| `_85731b97…` / `_7893e7c8…` | CNAME | App Runner 証明書の更新用。撤去まで必要 |
+| ACM 検証用 | CNAME | CloudFront 証明書の更新用 |
+
+> Gandi のゾーンには同じ検証レコードが「相対名」と「FQDN を相対名の欄に入れてしまったもの」の
+> 2 通りで登録されている (`….dev.vsmarketplacebadges.dev` という二重ドメインになっている)。
+> 無害だが不要なので移管していない。
+
+### フェーズ 4 — NS を切り替える (実際の切り替え)
+
+```bash
+terraform output route53_name_servers
+```
+
+この 4 本を **Gandi のレジストラ設定 (ネームサーバー)** に登録する。ここが切り替え点。
+
+浸透には時間がかかる。Gandi の NS の TTL に加え、レジストリ側の反映待ちがあるため、
+**切り替え当日は数時間の並行状態**になると見ておくこと。並行中はどちらの権威に当たっても
+バッジは返る (Gandi → App Runner / Route 53 → CloudFront) ので配信は途切れない。
+
+浸透の確認:
+
+```bash
+dig +short NS vsmarketplacebadges.dev
+dig +short vsmarketplacebadges.dev
+curl -sI https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg | grep -i x-cache
+```
+
+`x-cache` が出れば CloudFront 経由に切り替わっている。
+
+問題が出たら DNS ではなく**オリジン切替**で戻す (上記)。
 
 ### 移行完了後の後片付け
 
-DNS 切り替えが定着したら:
+NS 切り替えが定着したら:
 
-1. App Runner サービスを削除
+1. App Runner サービスを削除。**削除すると `rollback_to_apprunner` が使えなくなる**ので、
+   しばらく様子を見てから
 2. `.github/workflows/push-ecr.yml` と `Dockerfile` を削除 (ローカル開発は `dotnet watch run`)
 3. ECR リポジトリを削除。これで長期アクセスキーの利用者がいなくなるので、IAM ユーザー
    `for-github-actions` とそのアクセスキー、Secrets の `AWS_ACCESS_KEY_ID` /
    `AWS_SECRET_ACCESS_KEY` / `AWS_ECR_REPO_NAME` も削除する
-4. S3 の `vsmarketplace-badges/logs` を必要に応じて削除 (ログ出力先は CloudWatch に移行済み)
+4. `apprunner_validation_records` と `apprunner_service_url` を削除
+5. S3 の `vsmarketplace-badges/logs` を必要に応じて削除 (ログ出力先は CloudWatch に移行済み)
 
 ## タイムアウトの予算
 

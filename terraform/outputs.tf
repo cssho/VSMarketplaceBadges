@@ -37,3 +37,30 @@ output "acm_certificate_arn" {
   description = "CloudFront に付けた ACM 証明書 (us-east-1)。独自ドメイン未使用なら null。"
   value       = var.enable_custom_domain ? aws_acm_certificate_validation.this[0].certificate_arn : null
 }
+
+output "acm_validation_records" {
+  description = <<-EOT
+    ACM の DNS 検証用レコード。NS 移管前は Gandi に手で登録する必要がある。
+  EOT
+  value = var.enable_custom_domain ? {
+    for o in aws_acm_certificate.this[0].domain_validation_options :
+    o.resource_record_name => o.resource_record_value
+  } : {}
+}
+
+output "route53_zone_id" {
+  description = "作成した Route 53 ホストゾーン ID。レコードの突き合わせに使う。"
+  value       = var.manage_dns ? aws_route53_zone.main[0].zone_id : null
+}
+
+output "route53_name_servers" {
+  description = <<-EOT
+    Gandi のレジストラ設定に登録する NS。これを反映した時点が実際の切り替えになる。
+  EOT
+  value       = var.manage_dns ? aws_route53_zone.main[0].name_servers : null
+}
+
+output "cloudfront_origin" {
+  description = "現在 CloudFront が向いているオリジン。切り戻し状態の確認用。"
+  value       = local.origin_host
+}
