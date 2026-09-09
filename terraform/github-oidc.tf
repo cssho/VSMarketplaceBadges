@@ -72,13 +72,22 @@ data "aws_iam_policy_document" "github_actions_deploy" {
   }
 
   # CloudFront が向いているエイリアスの付け替え。
+  #
+  # UpdateAlias / GetAlias は「エイリアスの ARN」ではなく**修飾なしの関数 ARN**に対して
+  # 認可される。最小権限のつもりでエイリアス ARN だけを書くと
+  #   not authorized to perform: lambda:UpdateAlias on resource:
+  #   arn:aws:lambda:...:function:vsmarketplace-badges
+  # で拒否されるため、両方を並べる必要がある。
   statement {
     sid = "ShiftAlias"
     actions = [
       "lambda:UpdateAlias",
       "lambda:GetAlias",
     ]
-    resources = ["${aws_lambda_function.this.arn}:${aws_lambda_alias.live.name}"]
+    resources = [
+      aws_lambda_function.this.arn,
+      "${aws_lambda_function.this.arn}:${aws_lambda_alias.live.name}",
+    ]
   }
 
   # デプロイ直後にバッジを更新するためのキャッシュ無効化。
