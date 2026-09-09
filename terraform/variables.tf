@@ -69,43 +69,67 @@ variable "price_class" {
 
 variable "enable_custom_domain" {
   description = <<-EOT
-    段階移行フェーズ 2。ACM 証明書を発行し、CloudFront に独自ドメインを別名として付ける。
-    DNS はまだ App Runner を向いたままなので、実トラフィックには影響しない。
+    ACM 証明書を発行し、CloudFront に独自ドメインを別名として付ける。
+    DNS はまだ Gandi が権威なので、これだけでは実トラフィックに影響しない。
+
+    ACM の DNS 検証は権威 DNS を見るため、NS を移管するより先にこれを通しておく必要がある。
+    検証用 CNAME は Gandi に手動で追加する (README.md の手順)。
   EOT
   type        = bool
   default     = false
 }
 
-variable "enable_dns_cutover" {
+variable "manage_dns" {
   description = <<-EOT
-    段階移行フェーズ 3。Route 53 のレコードを App Runner から CloudFront へ切り替える。
-    これが実際の切り替えスイッチで、false に戻せばロールバックになる。
-    enable_custom_domain = true が前提。
+    Route 53 にホストゾーンとレコード一式を作る。レジストラ (Gandi) の NS を
+    Route 53 に向けるまでは誰も参照しないので、先に作って中身を突き合わせられる。
+
+    実際の切り替えは Terraform ではなく **Gandi 側の NS 変更**。
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "rollback_to_apprunner" {
+  description = <<-EOT
+    CloudFront のオリジンを Lambda Function URL から App Runner に切り替える。これが切り戻しスイッチ。
+
+    DNS ではなくオリジンを切り替えるのは、apex を App Runner に戻す DNS 手段が無いため。
+    Route 53 で App Runner を ALIAS ターゲットにできるのは 2022-08-01 以降に作成された
+    サービスだけで、このサービスは 2022-05-06 作成で対象外。
+    オリジン切替なら DNS に触れず、反映も CloudFront の伝播 (数分) で済む。
+
+    なお切り戻し先の App Runner は 2022 年のコードを配信する (CLAUDE.md 参照)。
   EOT
   type        = bool
   default     = false
 }
 
 variable "domain_name" {
-  description = "バッジを配信する独自ドメイン (例: badges.example.com)。enable_custom_domain = true のとき必須。"
+  description = "バッジを配信する独自ドメイン。apex ドメインを想定している。"
   type        = string
-  default     = ""
-}
-
-variable "route53_zone_id" {
-  description = "domain_name を含む Route 53 ホストゾーン ID。enable_custom_domain = true のとき必須。"
-  type        = string
-  default     = ""
+  default     = "vsmarketplacebadges.dev"
 }
 
 variable "apprunner_service_url" {
   description = <<-EOT
-    ロールバック先として残す App Runner サービスの既定ドメイン
-    (例: xxxxxxxx.ap-northeast-1.awsapprunner.com)。
-    enable_dns_cutover = false のあいだ、Route 53 レコードはこちらを指し続ける。
+    App Runner サービスの既定ドメイン。rollback_to_apprunner = true のとき
+    CloudFront のオリジンになる。
   EOT
   type        = string
-  default     = ""
+  default     = "x2k3hfprwf.ap-northeast-1.awsapprunner.com"
+}
+
+variable "apprunner_validation_records" {
+  description = <<-EOT
+    App Runner のカスタムドメイン証明書の検証用 CNAME (相対名 => 値)。
+    Gandi から引き継ぐ。App Runner を撤去するまで証明書の自動更新に必要なので落とさないこと。
+  EOT
+  type        = map(string)
+  default = {
+    "_85731b979fc3be6f41e8139bab076b73"                                 = "_d0401947bf62b9cb7df39c4cd0ee02b1.mybbdzzyvz.acm-validations.aws."
+    "_7893e7c832547de072c77b6dde1ae737.2a57j77tquppxkxpp0ow3wj78ekl878" = "_ea93d36bd33fd80aa6334ef02015105c.zfmzgmvxlk.acm-validations.aws."
+  }
 }
 
 variable "github_repository" {
