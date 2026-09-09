@@ -29,10 +29,27 @@ Route 53 (apex: vsmarketplacebadges.dev)
 CI が入れたコードを Terraform が plan のたびにプレースホルダーへ巻き戻すことはない。
 `aws_lambda_alias` の `function_version` も同じ理由で `ignore_changes` している。
 
-## 初回構築
+## 日常の操作
+
+移行は完了済み。**変数の既定値が稼働中の状態そのもの**なので、`terraform.tfvars` が無くても
+素の `terraform apply` で現状と一致する (差分ゼロ)。
+
+```bash
+cd terraform
+terraform init -backend-config=backend.hcl
+terraform plan     # No changes になるのが正常
+```
+
+> ⚠️ `enable_custom_domain` / `manage_dns` を false に倒すと、**証明書とホストゾーンが消えて
+> バッジ配信もメールも止まる**。段階移行のために用意したフラグであって、通常運用で触るものではない。
+> plan に `aws_route53_zone.main[0] will be destroyed` が出たら、その apply は実行しないこと。
+
+## 新しい環境をゼロから構築する場合
+
+以下は**別アカウント等に一から作り直すとき**の手順。稼働中の環境には不要。
 
 **順序が重要。** Terraform が最初に作る関数の中身はプレースホルダー ZIP なので、
-CI を一度走らせるまでバッジは配信できない。フェーズ 1 の動作確認より前に手順 3 を必ず終わらせること。
+CI を一度走らせるまでバッジは配信できない。動作確認より前に手順 3 を必ず終わらせること。
 
 ### 1. 土台を作る
 
@@ -40,10 +57,10 @@ CI を一度走らせるまでバッジは配信できない。フェーズ 1 �
 cd terraform
 cp terraform.tfvars.example terraform.tfvars   # 編集する
 terraform init -backend-config=backend.hcl
-terraform apply                                # enable_snapstart は既定 false
+terraform apply -var='enable_snapstart=false' -var='enable_custom_domain=false' -var='manage_dns=false'
 ```
 
-SnapStart はここではまだ切ったままにする。SnapStart はバージョン発行時に Init を走らせて
+SnapStart はここでは切っておく。SnapStart はバージョン発行時に Init を走らせて
 スナップショットを取るため、実コードが載る前のプレースホルダー ZIP では発行に失敗する。
 
 ### 2. GitHub 側の設定
@@ -72,11 +89,12 @@ SnapStart はここではまだ切ったままにする。SnapStart はバージ
 ### 4. SnapStart を有効化する
 
 ```bash
-terraform apply -var='enable_snapstart=true'
+terraform apply -var='enable_custom_domain=false' -var='manage_dns=false'
 ```
 
+`enable_snapstart` の既定は true なので、`-var` を外すだけで有効になる。
 設定が効くのは**次に発行されるバージョンから**なので、有効化したあともう一度
-`deploy-lambda` を走らせる。以降は `terraform.tfvars` に `enable_snapstart = true` を書いておく。
+`deploy-lambda` を走らせる。
 
 ## 段階移行の手順
 

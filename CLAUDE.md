@@ -129,8 +129,20 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 
 ## デプロイ (移行期間中は 2 系統が並走)
 
-インフラは `terraform/` に Terraform で定義してある。段階移行の手順・フラグ・ロールバックは
+インフラは `terraform/` に Terraform で定義してある。手順・フラグ・ロールバックは
 `terraform/README.md` を参照。
+
+配信経路は `vsmarketplacebadges.dev` (Route 53) → CloudFront → Lambda。DNS は Gandi から
+Route 53 へ移管済みで、apex は CloudFront への ALIAS。
+
+**変数の既定値が稼働中の状態そのもの**なので、`terraform plan` は差分ゼロが正常。
+`enable_custom_domain` / `manage_dns` は段階移行のために用意したフラグで、**false に倒すと
+証明書とホストゾーンが消えてバッジ配信もメールも止まる**。plan に
+`aws_route53_zone.main[0] will be destroyed` が出たら apply しないこと。
+
+切り戻しは DNS ではなく CloudFront のオリジン切替 (`rollback_to_apprunner`) で行う。
+apex を App Runner に戻す DNS 手段が無いため (Route 53 の ALIAS 対象は 2022-08-01 以降に
+作成されたサービスのみ、当該サービスは 2022-05-06 作成)。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
 - `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
