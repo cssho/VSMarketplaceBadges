@@ -69,7 +69,7 @@ namespace VSMarketplaceBadges
                 sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider,
                 sp.GetRequiredService<ILogger<FallbackBadgeService>>()));
 
-            services.AddResponseCaching();
+            // AddResponseCaching は行わない。理由は Configure 側のコメントを参照。
 
             services.AddMvc(options =>
             {
@@ -172,15 +172,29 @@ namespace VSMarketplaceBadges
             // Lambda Function URL には HTTP のリスナーが存在しないため UseHttpsRedirection は
             // 何も守らず、転送ヘッダーの解釈次第でリダイレクトループの種になるだけなので外した。
 
+            // 静的ファイルはエンドポイントより**先**に置く。バッジのルートが
+            // "{BadgeType}/{ItemName}.{ImageExt}" と 2 セグメントの何にでも当たるため、後ろに置くと
+            // wwwroot/image/vsmb.png のような 2 セグメントの静的ファイルがバッジ扱いされ、
+            // BadgeType=image が Unknown と解釈されて 400 になる (実際にそうなっていた)。
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
             app.UseRouting();
+
+            // UseResponseCaching は入れない。従来 UseEndpoints の後ろに置かれていて
+            // エンドポイントを包まず実質無効だったものを、上の並べ替えで正しい位置に移したところ
+            // 有効化され、?color=blue の有無でレスポンスが同一になる不具合が出た。
+            // ResponseCachingMiddleware は既定でクエリ文字列をキャッシュキーに含めない
+            // (VaryByQueryKeys が要る) ため、CloudFront 側で避けている「全バッジが 1 枚に化ける」
+            // 問題をオリジンで作り込んでしまう。
+            // キャッシュは CloudFront が担うので、プロセス内キャッシュは持たない。
+            // [ResponseCache(Duration = 3600)] は MVC のフィルターで、この有無に関係なく
+            // Cache-Control ヘッダーを出し続ける。
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
             });
-            app.UseDefaultFiles();
-            app.UseResponseCaching();
-            app.UseStaticFiles();
 
             //app.UseSerilogRequestLogging();
         }
