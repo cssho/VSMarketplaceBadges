@@ -64,6 +64,12 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "lambda:PublishVersion",
       "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
+
+      # 古いバージョンの掃除。放置するとスナップショットや保管対象が積み上がるため、
+      # デプロイのたびに直近数世代だけ残して削除する。
+      # DeleteFunction は qualifier 付きなら「そのバージョンだけ」を消す。
+      "lambda:ListVersionsByFunction",
+      "lambda:DeleteFunction",
     ]
     resources = [
       aws_lambda_function.this.arn,
