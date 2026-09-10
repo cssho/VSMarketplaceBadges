@@ -135,6 +135,26 @@ variable "apprunner_validation_records" {
   }
 }
 
+variable "alarm_email" {
+  description = <<-EOT
+    アラームと予算超過の通知先メールアドレス。空ならメール購読と予算を作らない
+    (アラーム自体は SNS トピックに飛ぶので、あとから購読を足せる)。
+
+    購読は確認メールのリンクを踏むまで Pending のままなので、apply 後に承認すること。
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "monthly_budget_usd" {
+  description = <<-EOT
+    月額予算 (USD)。超過の実績 80% と、月末予測 100% で通知する。
+    App Runner からの移行はコスト削減が目的だったので、想定を超えたら気づけるようにしておく。
+  EOT
+  type        = string
+  default     = "5"
+}
+
 variable "github_repository" {
   description = "OIDC でデプロイロールを引き受けさせる GitHub リポジトリ (owner/repo)。"
   type        = string
