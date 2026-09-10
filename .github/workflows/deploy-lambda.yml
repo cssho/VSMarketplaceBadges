@@ -87,6 +87,36 @@ jobs:
             --function-version "${{ steps.publish.outputs.version }}" \
             --no-cli-pager
 
+      # 古いバージョンを掃除する。放置するとデプロイのたびに積み上がり、SnapStart を
+      # 使う場合はスナップショット保管料がバージョン数だけ課金される (実際に Lambda 費用の
+      # 94% を占めた)。直近 KEEP 世代と live が指す版だけ残す。
+      #
+      # delete-function は --qualifier を付けたときだけ「そのバージョン」を消す。
+      # 付け忘れると**関数ごと消える**ので、数値であることを必ず検証してから渡すこと。
+      - name: Prune old versions
+        env:
+          KEEP: '3'
+        run: |
+          ALIAS_VERSION=$(aws lambda get-alias \
+            --function-name "$FUNCTION_NAME" --name "$ALIAS_NAME" \
+            --query FunctionVersion --output text)
+          VERSIONS=$(aws lambda list-versions-by-function \
+            --function-name "$FUNCTION_NAME" \
+            --query 'Versions[?Version!=`$LATEST`].Version' --output text \
+            | tr '\t' '\n' | sort -n)
+          TOTAL=$(echo "$VERSIONS" | grep -c .)
+          if [ "$TOTAL" -le "$KEEP" ]; then
+            echo "versions=$TOTAL (keep=$KEEP) — 掃除不要"
+            exit 0
+          fi
+          echo "$VERSIONS" | head -n "$((TOTAL - KEEP))" | while read -r v; do
+            case "$v" in ''|*[!0-9]*) echo "skip: 不正な qualifier '$v'"; continue;; esac
+            [ "$v" = "$ALIAS_VERSION" ] && { echo "skip: v$v は $ALIAS_NAME"; continue; }
+            aws lambda delete-function \
+              --function-name "$FUNCTION_NAME" --qualifier "$v" --no-cli-pager \
+              && echo "deleted v$v"
+          done
+
       # バッジは CloudFront に最大 1 時間キャッシュされる。デプロイ直後から新しい挙動を
       # 見せたいので、切り替えのたびに無効化する (月 1000 パスまで無料)。
       #
