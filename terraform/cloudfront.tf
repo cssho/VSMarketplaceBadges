@@ -93,6 +93,20 @@ resource "aws_cloudfront_response_headers_policy" "security" {
       override                   = true
     }
   }
+
+  custom_headers_config {
+    # vscode.dev / github.dev は SharedArrayBuffer のために
+    # Cross-Origin-Embedder-Policy: require-corp で配信されている。その文脈では
+    # クロスオリジンの画像は CORP が付いていないと読み込みが拒否され、
+    #   ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep
+    # でバッジが壊れる。img.shields.io や raw.githubusercontent.com も同じ値を返している。
+    # https://github.com/cssho/VSMarketplaceBadges/issues/11
+    items {
+      header   = "Cross-Origin-Resource-Policy"
+      value    = "cross-origin"
+      override = true
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "badges" {
