@@ -57,6 +57,44 @@ resource "aws_cloudfront_cache_policy" "badges" {
   }
 }
 
+# ----------------------------------------------------------------------------
+# セキュリティヘッダー
+#
+# 配信全体に効かせて問題のないものだけを置く。CSP はここに入れない。
+# ドキュメントページ (wwwroot/index.html) が jQuery・Bootstrap・Twitter ウィジェットと
+# インラインスクリプトを使っており、全体に厳格な CSP をかけると壊れるため。
+# バッジ応答向けの CSP は BadgeController が個別に付ける。
+# ----------------------------------------------------------------------------
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name    = "${var.function_name}-security-headers"
+  comment = "Security headers safe to apply to every response"
+
+  security_headers_config {
+    # 上流の応答を image/svg+xml で返しているため、ブラウザに型を推測させない。
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+
+    # バッジは README から参照されるので、参照元の URL を丸ごと送らない。
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = false
+      override                   = true
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "badges" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -90,8 +128,9 @@ resource "aws_cloudfront_distribution" "badges" {
     cached_methods  = ["GET", "HEAD"]
 
     # SVG はテキストなので圧縮が効く。
-    compress        = true
-    cache_policy_id = aws_cloudfront_cache_policy.badges.id
+    compress                   = true
+    cache_policy_id            = aws_cloudfront_cache_policy.badges.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
   restrictions {
