@@ -3,13 +3,14 @@ locals {
   # CloudFront のオリジンにはスキームと末尾スラッシュを除いたホスト名だけを渡す。
   function_url_host = replace(replace(aws_lambda_function_url.live.function_url, "https://", ""), "/", "")
 
-  # 切り戻しはオリジンの差し替えで行う (var.rollback_to_apprunner)。DNS は常に CloudFront を
-  # 指したままなので、切り替えも切り戻しも DNS の TTL に左右されない。
-  origin_host = var.rollback_to_apprunner ? var.apprunner_service_url : local.function_url_host
+  origin_host = local.function_url_host
 
-  # App Runner は公開エンドポイントなので OAC で署名しない。というより、署名すると
-  # App Runner 側が解釈できない Authorization ヘッダーが付くだけで害になる。
-  origin_access_control = var.rollback_to_apprunner ? null : aws_cloudfront_origin_access_control.lambda.id
+  # App Runner を撤去したため、オリジン切替による切り戻しは廃止した。
+  # 現在の切り戻し手段は Lambda エイリアス (live) を前のバージョンに戻すこと。
+  #   aws lambda update-alias --function-name vsmarketplace-badges --name live \
+  #     --function-version <前の版>
+  # deploy-lambda.yml が直近 3 世代を残すので、1〜2 世代前には戻せる。
+  origin_access_control = aws_cloudfront_origin_access_control.lambda.id
 }
 
 resource "aws_cloudfront_origin_access_control" "lambda" {

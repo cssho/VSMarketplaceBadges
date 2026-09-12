@@ -21,7 +21,7 @@ dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 - ターゲットは `net8.0` (LTS)。リポジトリルートに `VSMarketplaceBadges.sln` と
   `VSMarketplaceBadges.csproj` の両方があるため、Web プロジェクトだけを対象にするコマンドでは
   明示的にプロジェクトを指定する必要がある (`dotnet publish VSMarketplaceBadges.csproj`)。
-  指定しないと MSBuild が曖昧さでエラーになる。Dockerfile は既に指定済み。
+  指定しないと MSBuild が曖昧さでエラーになる。
 - Web プロジェクトのルートが**リポジトリルートそのもの**なので、既定の `**/*.cs` グロブは
   テストプロジェクトまで巻き込んでしまう。`VSMarketplaceBadges.csproj` の
   `<Compile Remove="tests/**" />` がそれを防いでいるので、削除しないこと。
@@ -53,7 +53,7 @@ ASP.NET Core が通常使う `Logging:LogLevel` セクションはここでは�
 `Serilog:MinimumLevel` (または環境変数 `Serilog__MinimumLevel`) で、既定値は Development で
 `Debug`、それ以外では `Information`。
 
-シンクは環境によらず stdout の 1 本だけ。Lambda / App Runner とも stdout をそのまま
+シンクは環境によらず stdout の 1 本だけ。Lambda は stdout をそのまま
 CloudWatch Logs に転送するため、アプリ側は AWS SDK を持たない。保持期間とコストは
 CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 
@@ -156,9 +156,15 @@ Route 53 へ移管済みで、apex は CloudFront への ALIAS。
 証明書とホストゾーンが消えてバッジ配信もメールも止まる**。plan に
 `aws_route53_zone.main[0] will be destroyed` が出たら apply しないこと。
 
-切り戻しは DNS ではなく CloudFront のオリジン切替 (`rollback_to_apprunner`) で行う。
-apex を App Runner に戻す DNS 手段が無いため (Route 53 の ALIAS 対象は 2022-08-01 以降に
-作成されたサービスのみ、当該サービスは 2022-05-06 作成)。
+切り戻しは **Lambda エイリアス (`live`) の版戻し**で行う。
+
+```
+aws lambda update-alias --function-name vsmarketplace-badges --name live --function-version <前の版>
+```
+
+即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
+移行期間中は CloudFront のオリジンを App Runner に差し替える手段もあったが、App Runner は
+撤去済み。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
 - `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
@@ -166,29 +172,8 @@ apex を App Runner に戻す DNS 手段が無いため (Route 53 の ALIAS 対�
     `update-function-code` → バージョン発行 → `live` エイリアス付け替え → CloudFront 無効化。
     認証は **OIDC** (`vars.AWS_DEPLOY_ROLE_ARN`)。長期アクセスキーは使わないので、
     `permissions: id-token: write` を消すとロールを引き受けられなくなる。
-  - `.github/workflows/push-ecr.yml` — 旧経路 (App Runner)。ECR への push までは成功するが、
-    **App Runner のデプロイは必ずロールバックする** (下記)。こちらは今も長期アクセスキー
-    (`secrets.AWS_ACCESS_KEY_ID`) を使う。撤去時に鍵ごと消す。
 - CloudFront は Lambda の **`live` エイリアス**を向いている。`$LATEST` は公開経路ではなく、
   SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
   配信内容が変わらない。
-- DNS 切り替えが定着したら `push-ecr.yml` / `Dockerfile` / ECR / App Runner を撤去する。
+- 認証は **OIDC** のみ。長期アクセスキーは使わない (App Runner 撤去時に IAM ユーザーごと削除済み)。
 
-### App Runner は .NET 8 のコードをデプロイできない (対処しないと決めた既知の状態)
-
-App Runner サービスは**ポート 80** を待ち受ける設定だが、`mcr.microsoft.com/dotnet/aspnet:8.0`
-の既定ポートは **8080** (.NET 8 で 80 から変更された)。コンテナは 8080 で listen するため
-TCP ヘルスチェックが通らず、デプロイは毎回 `ROLLBACK_SUCCEEDED` で 2022 年のイメージに戻る。
-
-その結果:
-
-- **App Runner が配信しているのは 2022 年のコード**。.NET 8 移行も semver 修正も
-  フォールバックバッジも入っていない。バージョンバッジが `v2.23.2` を返すのは
-  序数比較のままだから (正しくは `v2.151.28`)。
-- したがって **App Runner は「動くが 4 年前の挙動」の切り戻し先**でしかない。
-  `terraform/README.md` のロールバック手順はこの前提で読むこと。
-- Lambda 経路は HTTP ポートを使わない (ランタイム API 経由) ため影響を受けない。
-
-直すなら `Dockerfile` に `ENV ASPNETCORE_HTTP_PORTS=80` を足すだけだが、App Runner は
-まもなく撤去するため**意図的に対処しない**と判断した。`master` への push で
-`Push Amazon ECR` が緑になり App Runner がロールバックするのは想定内であり、調査不要。
