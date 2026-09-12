@@ -76,9 +76,8 @@ namespace VSMarketplaceBadges
             });
         }
 
-        // 外部呼び出しの時間予算。App Runner 時代は 4 回 × 3^n 秒 (最大 120 秒) 待ち、
-        // タイムアウトも 5 分だったが、Lambda では待機時間がそのまま課金される。
-        // ポリシーは登録順に外側から内側へ重なるので、3 層でこう効かせている:
+        // 外部呼び出しの時間予算。Lambda では待機時間がそのまま課金されるので、
+        // ポリシーを 3 層 (登録順に外側から内側) にして上限を明示している。
         //
         //   TotalTimeoutPolicy (10 秒)   ← 何があってもここで打ち切るハードキャップ
         //     RetryPolicy (1 回, 1 秒待機)
@@ -130,28 +129,25 @@ namespace VSMarketplaceBadges
                 app.UseDeveloperExceptionPage();
             }
 
-            // TLS 終端は CloudFront (および App Runner) が行い、オリジンへは常に HTTPS で届く。
-            // Lambda Function URL には HTTP のリスナーが存在しないため UseHttpsRedirection は
-            // 何も守らず、転送ヘッダーの解釈次第でリダイレクトループの種になるだけなので外した。
+            // UseHttpsRedirection は入れない。TLS 終端は CloudFront が行い、
+            // Lambda Function URL に HTTP のリスナーは存在しないので何も守らず、
+            // 転送ヘッダーの解釈次第でリダイレクトループの種になるだけ。
 
-            // 静的ファイルはエンドポイントより**先**に置く。バッジのルートが
-            // "{BadgeType}/{ItemName}.{ImageExt}" と 2 セグメントの何にでも当たるため、後ろに置くと
+            // 静的ファイルはエンドポイントより**先**に置く。バッジのルート
+            // "{BadgeType}/{ItemName}.{ImageExt}" は 2 セグメントの何にでも当たるため、後ろに置くと
             // wwwroot/image/vsmb.png のような 2 セグメントの静的ファイルがバッジ扱いされ、
-            // BadgeType=image が Unknown と解釈されて 400 になる (実際にそうなっていた)。
+            // BadgeType=image が Unknown と解釈されて 400 になる。
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
             app.UseRouting();
 
-            // UseResponseCaching は入れない。従来 UseEndpoints の後ろに置かれていて
-            // エンドポイントを包まず実質無効だったものを、上の並べ替えで正しい位置に移したところ
-            // 有効化され、?color=blue の有無でレスポンスが同一になる不具合が出た。
-            // ResponseCachingMiddleware は既定でクエリ文字列をキャッシュキーに含めない
-            // (VaryByQueryKeys が要る) ため、CloudFront 側で避けている「全バッジが 1 枚に化ける」
-            // 問題をオリジンで作り込んでしまう。
-            // キャッシュは CloudFront が担うので、プロセス内キャッシュは持たない。
-            // [ResponseCache(Duration = 3600)] は MVC のフィルターで、この有無に関係なく
-            // Cache-Control ヘッダーを出し続ける。
+            // UseResponseCaching は入れない。ResponseCachingMiddleware は既定でクエリ文字列を
+            // キャッシュキーに含めない (VaryByQueryKeys が要る) ため、有効にすると ?color=blue の
+            // 有無でレスポンスが同一になり、CloudFront 側で避けている「全バッジが 1 枚に化ける」
+            // 問題をオリジンで作り込んでしまう。キャッシュは CloudFront が担う。
+            // [ResponseCache(Duration = 3600)] は MVC のフィルターなので、この有無に関係なく
+            // Cache-Control ヘッダーは出続ける。
 
             app.UseEndpoints(endpoints =>
             {

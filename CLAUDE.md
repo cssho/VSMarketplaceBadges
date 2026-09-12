@@ -57,11 +57,8 @@ ASP.NET Core が通常使う `Logging:LogLevel` セクションはここでは�
 CloudWatch Logs に転送するため、アプリ側は AWS SDK を持たない。保持期間とコストは
 CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 
-以前は Production のみ Amazon S3 (`vsmarketplace-badges/logs`) に送っていたが、Lambda 移行に
-伴い廃止した (`Serilog.Sinks.AmazonS3` 参照ごと削除)。
-
-`SelfLog` は Serilog 内部の障害を stderr に出力する。stdout シンクのみになった現在も、
-フォーマッタ例外などを黙って握りつぶさないために残している。
+`SelfLog` は Serilog 内部の障害を stderr に出力する。フォーマッタ例外などを黙って
+握りつぶさないために入れている。
 
 ## 上流障害時のフォールバック
 
@@ -127,8 +124,7 @@ SnapStart を切ったのと同じ理由で、書き換えのリスクに見合�
 - 効果はコールドスタート 2405ms → 1923ms (**-482ms**) にとどまった。SnapStart は初期化の
   やり直しを省くだけで、.NET のティアード コンパイルまでは肩代わりしない。
 - 費用は**スナップショット 1 本 (1024MB) あたり月 $3.90**。SnapStart は発行済みバージョン
-  ごとに保管料がかかるため、デプロイのたびに積み上がる。実際 5 バージョンで Lambda 費用の
-  94% を占め、月換算 $19.50 相当と、旧 App Runner の $11.99 を上回っていた。
+  ごとに保管料がかかるため、デプロイのたびに積み上がる。5 バージョンで月 $19.50 相当。
 - 実行分 (GB-秒・リクエスト) は無料枠内で $0。つまり Lambda の費用はほぼ全額が保管料だった。
 - バッジは CloudFront に 1 時間キャッシュされ、コールドスタートに当たる利用者は稀
   (キャッシュヒット時は 20〜30ms)。482ms のために月 $4〜20 は見合わない。
@@ -155,7 +151,7 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 `HttpRequestException` ではないので、`RetryPolicy` の `.Or<TimeoutRejectedException>()` を
 外すとタイムアウトがリトライされずそのまま 500 になる。
 
-## デプロイ (移行期間中は 2 系統が並走)
+## デプロイ
 
 インフラは `terraform/` に Terraform で定義してある。手順・フラグ・ロールバックは
 `terraform/README.md` を参照。
@@ -175,8 +171,6 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
 ```
 
 即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
-移行期間中は CloudFront のオリジンを App Runner に差し替える手段もあったが、App Runner は
-撤去済み。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
 - `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**

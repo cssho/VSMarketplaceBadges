@@ -1,9 +1,8 @@
 # ----------------------------------------------------------------------------
 # 監視
 #
-# 移行前は App Runner 任せでアラームが一切無く、壊れても誰も気づけない状態だった。
-# バッジは CloudFront に 1 時間キャッシュされるため、オリジンが死んでもしばらくは
-# 正常に見えてしまう。異常が「見えない」時間が長い構成なので、通知は必須。
+# バッジは CloudFront に 1 時間キャッシュされるため、オリジンが死んでもしばらくは正常に
+# 見えてしまう。異常が「見えない」時間が長い構成なので、通知は必須。
 #
 # CloudWatch アラームは同一リージョンの SNS トピックしか叩けない。CloudFront のメトリクスは
 # us-east-1 にしか出ないため、トピックを 2 リージョンに持つ必要がある。
@@ -78,7 +77,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
 }
 
 # タイムアウト (var.lambda_timeout) に迫っている実行を捕まえる。Polly の予算を超えて
-# 上流が詰まっている兆候なので、実際にタイムアウトする前に気づきたい。
+# 上流が詰まっている兆候なので、タイムアウトする前に気づきたい。
 resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
   alarm_name          = "${var.function_name}-lambda-duration"
   alarm_description   = "Lambda duration approaching the ${var.lambda_timeout}s timeout"

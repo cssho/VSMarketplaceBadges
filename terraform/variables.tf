@@ -38,8 +38,7 @@ variable "origin_read_timeout" {
 
 variable "log_retention_days" {
   description = <<-EOT
-    CloudWatch Logs の保持日数。App Runner 時代の S3 への無期限蓄積と違い、
-    CloudWatch は保存量で課金されるため必ず有限にする。
+    CloudWatch Logs の保持日数。保存量で課金されるため必ず有限にする。
   EOT
   type        = number
   default     = 14
@@ -118,7 +117,7 @@ variable "forwarded_query_strings" {
 
     ここに無いパラメータは**キャッシュキーにも入らず、オリジンにも渡らない**。
     `?cb=<乱数>` のような細工でキャッシュを迂回し、Lambda と上流 (Marketplace / shields.io) へ
-    無制限にリクエストを誘発する攻撃を防ぐのが目的。全転送 (all) だと実際に迂回できていた。
+    無制限にリクエストを誘発する攻撃を防ぐのが目的。全転送 (all) では迂回できてしまう。
 
     中身は shields.io が解釈するパラメータと、このアプリ自身が使う subject / color。
     shields.io が新しいパラメータを増やしたらここに足す。足し忘れるとそのパラメータが

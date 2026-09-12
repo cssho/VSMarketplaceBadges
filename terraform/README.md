@@ -1,18 +1,19 @@
-# インフラ (App Runner → Lambda + CloudFront)
+# インフラ
 
-App Runner がメンテナンスモードに入った (2026/4/30 以降は新規顧客の受付停止、新機能追加なし)
-ことと、常時起動コンテナの月額を落とすことを目的に、配信基盤を Lambda + CloudFront へ移す。
+バッジ配信基盤の Terraform 定義。
 
 ## 構成
 
 ```
-Route 53 (apex: vsmarketplacebadges.dev)
+vsmarketplacebadges.dev (Route 53 / apex)
   └─ CloudFront                         ACM 証明書は us-east-1
        ├─ Cache Policy: 許可したクエリ文字列だけをキャッシュキーに含める ★
        ├─ TTL 3600 (オリジンの [ResponseCache(Duration = 3600)] に合わせる)
+       ├─ Security Headers: HSTS / nosniff / X-Frame-Options / Referrer-Policy / CORP
+       ├─ Access Logs → S3 (var.access_log_retention_days 日)
        └─ Origin: Lambda Function URL (AWS_IAM + OAC で直叩きを封鎖)
             └─ Lambda (dotnet10, alias=live)  ※SnapStart はコスト都合で無効
-                 └─ 既存の ASP.NET Core (wwwroot も同梱)
+                 └─ ASP.NET Core (wwwroot も同梱)
                       └─ stdout → CloudWatch Logs (保持 14 日)
 ```
 
@@ -26,14 +27,12 @@ Route 53 (apex: vsmarketplacebadges.dev)
   当サービスの IP が遮断されるリスクがある。
 
 shields.io が新しいパラメータを増やしたら `forwarded_query_strings` に足す。足し忘れても
-そのパラメータが効かなくなるだけで壊れはしない。
-
-アクセスログは専用の S3 バケットに `var.access_log_retention_days` 日だけ保存する。
-WAF を入れていないぶん、キャッシュ迂回の試行を後から追える証跡として置いている。
+そのパラメータが効かなくなるだけで壊れはしない。**CloudFront の上限は既定 10 個**で、
+超えると `TooManyQueryStringsInCachePolicy` で apply が失敗する。
 
 ## 責務の分担
 
-- **Terraform** — 関数という「器」、エイリアス、Function URL、CloudFront、証明書、DNS
+- **Terraform** — 関数という「器」、エイリアス、Function URL、CloudFront、証明書、DNS、監視
 - **GitHub Actions** (`.github/workflows/deploy-lambda.yml`) — 関数の「中身」(コード)
 
 `aws_lambda_function` は `filename` / `source_code_hash` を `ignore_changes` しているので、
@@ -42,8 +41,8 @@ CI が入れたコードを Terraform が plan のたびにプレースホルダ
 
 ## 日常の操作
 
-移行は完了済み。**変数の既定値が稼働中の状態そのもの**なので、`terraform.tfvars` が無くても
-素の `terraform apply` で現状と一致する (差分ゼロ)。
+**変数の既定値が稼働中の状態そのもの**なので、`terraform.tfvars` が無くても素の
+`terraform apply` で現状と一致する (差分ゼロ)。
 
 ```bash
 cd terraform
@@ -52,72 +51,13 @@ terraform plan     # No changes になるのが正常
 ```
 
 > ⚠️ `enable_custom_domain` / `manage_dns` を false に倒すと、**証明書とホストゾーンが消えて
-> バッジ配信もメールも止まる**。段階移行のために用意したフラグであって、通常運用で触るものではない。
-> plan に `aws_route53_zone.main[0] will be destroyed` が出たら、その apply は実行しないこと。
+> バッジ配信もメールも止まる**。環境をゼロから作るときのために残してあるフラグであって、
+> 通常運用で触るものではない。plan に `aws_route53_zone.main[0] will be destroyed` が出たら、
+> その apply は実行しないこと。
 
-## 新しい環境をゼロから構築する場合
+## 切り戻し
 
-以下は**別アカウント等に一から作り直すとき**の手順。稼働中の環境には不要。
-
-**順序が重要。** Terraform が最初に作る関数の中身はプレースホルダー ZIP なので、
-CI を一度走らせるまでバッジは配信できない。動作確認より前に手順 3 を必ず終わらせること。
-
-### 1. 土台を作る
-
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars   # 編集する
-terraform init -backend-config=backend.hcl
-terraform apply -var='enable_snapstart=false' -var='enable_custom_domain=false' -var='manage_dns=false'
-```
-
-SnapStart はここでは切っておく。SnapStart はバージョン発行時に Init を走らせて
-スナップショットを取るため、実コードが載る前のプレースホルダー ZIP では発行に失敗する。
-
-### 2. GitHub 側の設定
-
-`terraform output` の値を設定する。`CLOUDFRONT_DISTRIBUTION_ID` が未設定だと
-`deploy-lambda` はキャッシュ無効化ステップで意図的に失敗する。
-
-| 設定先 | キー | 値 |
-| --- | --- | --- |
-| Variables | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id` |
-| Variables | `AWS_DEPLOY_ROLE_ARN` | `github_actions_role_arn` |
-
-`deploy-lambda.yml` は**長期のアクセスキーを使わない**。実行ごとに発行される OIDC トークンで
-`github-oidc.tf` が作るロールを引き受ける。Secrets は不要。
-
-ロールの信頼ポリシーは `repo:<owner>/<repo>:ref:refs/heads/master` に固定してある
-(`var.github_deploy_refs`)。別ブランチから手動実行したくなったらこの変数に足す。
-ここを緩めると同じ GitHub OIDC を使う任意のリポジトリから引き受けられてしまうので、
-`repo:*` のような書き方はしないこと。
-
-### 3. 実コードを載せる
-
-`master` に push、または `deploy-lambda` を workflow_dispatch で実行する。
-これで `live` エイリアスがプレースホルダーから実コードのバージョンに移る。
-
-### 4. 残りを有効化する
-
-```bash
-terraform apply -var='enable_custom_domain=false' -var='manage_dns=false'
-```
-
-`enable_snapstart` は**既定 false のままでよい**。一度有効にして実測したが、スナップショット
-保管料が Lambda 費用の 94% を占める一方で効果は 482ms にとどまり、割に合わなかった。
-判断の根拠は `variables.tf` の `enable_snapstart` と CLAUDE.md を参照。
-
-## 段階移行の手順
-
-対象は **apex ドメイン** `vsmarketplacebadges.dev`。DNS は元々 **Gandi LiveDNS** にあり、
-apex は Gandi の ALIAS で App Runner を指していた。これを Route 53 に移管する。
-
-apex は CNAME が使えず、CloudFront には固定 IP が無いので ALIAS が必須。
-**実際の切り替えは Terraform ではなく Gandi のレジストラ設定で NS を変える操作**になる。
-
-### 切り戻し
-
-App Runner を撤去したため、切り戻しは **Lambda エイリアス (`live`) の版戻し**のみ。
+**Lambda エイリアス (`live`) の版戻し**で行う。
 
 ```bash
 aws lambda update-alias --function-name vsmarketplace-badges --name live \
@@ -125,130 +65,6 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live \
 ```
 
 即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
-
-移行期間中は CloudFront のオリジンを App Runner に差し替える方式を使い、往復約 2 分で
-機能することをリハーサルで実証したが、App Runner の撤去に伴い廃止した。
-
-### フェーズ 1 — 裏で検証
-
-「初回構築」の手順 4 まで終わっていること。CloudFront の既定ドメインで動作確認する:
-
-```bash
-DOMAIN=$(terraform output -raw cloudfront_domain_name)
-curl -s "https://$DOMAIN/version-short/ms-dotnettools.csharp.svg" | head -c 200
-curl -s "https://$DOMAIN/downloads/ms-dotnettools.csharp.svg?color=blue" | head -c 200
-curl -sI "https://$DOMAIN/"
-```
-
-確認したいこと:
-
-- クエリ文字列ごとに別のバッジが返る
-- 2 回目以降のレスポンスヘッダーに `X-Cache: Hit from cloudfront` が出る
-- Function URL を直接叩くと 403 になる (`terraform output -raw lambda_function_url`)
-- CloudWatch Logs にログが出ている
-
-この時点で本番トラフィックは App Runner のまま。
-
-### フェーズ 2 — 証明書を発行して Gandi で検証する
-
-**NS 移管より先に証明書を通しておく。** ACM の DNS 検証は権威 DNS を見るため、NS が Gandi の
-うちは Route 53 に検証レコードを入れても検証されない。順序を逆にすると、NS を切り替えた瞬間に
-証明書エラーになる。
-
-```bash
-terraform apply -var='enable_custom_domain=true'
-terraform output acm_validation_records
-```
-
-出力された CNAME を **Gandi の DNS に手動で追加**する。発行されると `terraform apply` が完了する
-(`aws_acm_certificate_validation` が発行待ちをする)。
-
-DNS を変えずに独自ドメイン名で CloudFront に届くか確認できる:
-
-```bash
-DOMAIN=$(terraform output -raw cloudfront_domain_name)
-curl -s --resolve "vsmarketplacebadges.dev:443:$(dig +short $DOMAIN | head -1)" \
-  "https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg" | head -c 200
-```
-
-### フェーズ 3 — Route 53 にゾーンを作って突き合わせる
-
-```bash
-terraform apply -var='enable_custom_domain=true' -var='manage_dns=true'
-```
-
-NS はまだ Gandi なので**無影響**。作られたゾーンの中身を Gandi のゾーンファイルと突き合わせる。
-
-```bash
-ZONE=$(terraform output -raw route53_zone_id 2>/dev/null || \
-  aws route53 list-hosted-zones-by-name --dns-name vsmarketplacebadges.dev \
-    --query 'HostedZones[0].Id' --output text)
-aws route53 list-resource-record-sets --hosted-zone-id "$ZONE" \
-  --query 'ResourceRecordSets[].[Name,Type,ResourceRecords[].Value,AliasTarget.DNSName]' --output text
-```
-
-**MX と SPF を落とすとメール受信が止まる。** apex の ALIAS 以外はすべて Gandi と同じ内容に
-なっていること。移管対象は以下:
-
-| 名前 | 種別 | 用途 |
-| --- | --- | --- |
-| apex | A/AAAA ALIAS → CloudFront | バッジ配信 (Gandi では App Runner を指していた) |
-| apex | MX | Gandi メール。落とすと受信が止まる |
-| apex | TXT | SPF と Google Search Console |
-| `www` | CNAME | Gandi ウェブリダイレクト |
-| `blog` | CNAME | Gandi ブログ |
-| `webmail` | CNAME | Gandi ウェブメール |
-| `_85731b97…` / `_7893e7c8…` | CNAME | App Runner 証明書の更新用。撤去まで必要 |
-| ACM 検証用 | CNAME | CloudFront 証明書の更新用 |
-
-> Gandi のゾーンには同じ検証レコードが「相対名」と「FQDN を相対名の欄に入れてしまったもの」の
-> 2 通りで登録されている (`….dev.vsmarketplacebadges.dev` という二重ドメインになっている)。
-> 無害だが不要なので移管していない。
-
-### フェーズ 4 — NS を切り替える (実際の切り替え)
-
-```bash
-terraform output route53_name_servers
-```
-
-この 4 本を **Gandi のレジストラ設定 (ネームサーバー)** に登録する。ここが切り替え点。
-
-浸透には時間がかかる。Gandi の NS の TTL に加え、レジストリ側の反映待ちがあるため、
-**切り替え当日は数時間の並行状態**になると見ておくこと。並行中はどちらの権威に当たっても
-バッジは返る (Gandi → App Runner / Route 53 → CloudFront) ので配信は途切れない。
-
-浸透の確認:
-
-```bash
-dig +short NS vsmarketplacebadges.dev
-dig +short vsmarketplacebadges.dev
-curl -sI https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg | grep -i x-cache
-```
-
-`x-cache` が出れば CloudFront 経由に切り替わっている。
-
-当時は問題が出たら CloudFront のオリジンを App Runner に差し替えて戻す運用だった
-(App Runner 撤去に伴い廃止。現在の手段は上の「切り戻し」を参照)。
-
-### 移行完了後の後片付け (完了済み)
-
-App Runner とその周辺は撤去済み。何を消したかの記録:
-
-| 対象 | 備考 |
-| --- | --- |
-| App Runner サービス | カスタムドメインの関連付けも同時に消える |
-| ECR リポジトリ (21 イメージ) | |
-| `push-ecr.yml` / `Dockerfile` / `.dockerignore` | ローカル開発は `dotnet watch run` |
-| IAM ユーザー `for-github-actions` + アクセスキー | CI は OIDC のみになった |
-| IAM ユーザー `localdev` + `s3policy` | 旧ログバケット専用。キーは 2022-06-06 以降未使用だった |
-| Secrets `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ECR_REPO_NAME` | |
-| S3 `vsmarketplace-badges` | 旧ログバケット。中身は 2022-06-06 の Development ログ 2 件のみ |
-| Route 53 の App Runner 証明書検証 CNAME × 2 | |
-| `rollback_to_apprunner` / `apprunner_service_url` / `apprunner_validation_records` | |
-
-**これでアカウントに長期アクセスキーは 1 本も残っていない。**
-
-切り戻し手段は Lambda エイリアスの版戻しのみになった。詳細は上の「切り戻し」を参照。
 
 ## タイムアウトの予算
 
@@ -264,13 +80,99 @@ App Runner とその周辺は撤去済み。何を消したかの記録:
 内訳は `Startup.cs` のコメントを参照。`VSMarketplaceService.LoadVsmItemDataFromApi` が失敗時に
 `CoreRequest` をもう一度呼ぶため、Marketplace 側は他方の 2 倍かかる点に注意。
 
+## 監視
+
+CloudWatch アラーム 4 種と AWS Budgets を `monitoring.tf` で定義している。通知先は
+`var.alarm_email` (gitignore 済みの `terraform.tfvars` に置く)。
+
+> ⚠️ **SNS のメール購読は未確認のまま 3 日で削除される。** apply で購読が作り直されたら
+> 確認メールのリンクを必ず踏むこと。踏まないとアラームが発報しても誰にも届かない。
+
+CloudWatch アラームは同一リージョンの SNS トピックしか叩けず、CloudFront のメトリクスは
+us-east-1 にしか出ないため、トピックを 2 リージョンに持っている。
+
 ## コストの見どころ
 
 - **Lambda** — 呼び出し回数と実行時間のみ。バッジは 1 時間 CloudFront にキャッシュされ、
   GitHub の README に貼られた分は camo プロキシも挟まるので、オリジンへの到達はごく少ない。
+- **SnapStart** — 有効にすると**発行済みバージョンごとに**スナップショット保管料がかかる
+  (1024MB で月 $3.90/本)。効果が小さく費用が勝つため無効にしている。判断の根拠は
+  `variables.tf` の `enable_snapstart` と CLAUDE.md。
 - **CloudWatch Logs** — 保存量で課金される。`log_retention_days` を必ず有限に保つこと。
-  ローカル実行で確認した限り `UseCacheService` の `"Redis error."` は 1 件も出ていない
-  (`IDistributedCache` はフレームワーク既定のプロセス内実装が解決されている)。ただし
-  そのキャッシュは実行環境ごとに独立するため、Lambda ではコールドスタートのたびに空になる。
-  実際に効くキャッシュは CloudFront 側だと考えてよい。
 - **CloudFront** — 転送量課金。無効化は月 1000 パスまで無料。
+
+プロセス内キャッシュ (`UseCacheService`) は実行環境ごとに独立し、コールドスタートのたびに
+空になる。実際に効くキャッシュは CloudFront 側だと考えてよい。
+
+## 新しい環境をゼロから構築する場合
+
+別アカウント等に一から作り直すときの手順。稼働中の環境には不要。
+
+**順序が重要。** Terraform が最初に作る関数の中身はプレースホルダー ZIP なので、
+CI を一度走らせるまでバッジは配信できない。
+
+### 1. 土台を作る
+
+```bash
+cp terraform.tfvars.example terraform.tfvars   # 編集する
+terraform init -backend-config=backend.hcl
+terraform apply -var='enable_custom_domain=false' -var='manage_dns=false'
+```
+
+### 2. GitHub 側の設定
+
+`terraform output` の値を設定する。`CLOUDFRONT_DISTRIBUTION_ID` が未設定だと
+`deploy-lambda` はキャッシュ無効化ステップで意図的に失敗する。
+
+| 設定先 | キー | 値 |
+| --- | --- | --- |
+| Variables | `CLOUDFRONT_DISTRIBUTION_ID` | `cloudfront_distribution_id` |
+| Variables | `AWS_DEPLOY_ROLE_ARN` | `github_actions_role_arn` |
+
+`deploy-lambda.yml` は**長期のアクセスキーを使わない**。実行ごとに発行される OIDC トークンで
+`github-oidc.tf` が作るロールを引き受ける。Secrets は不要。
+
+ロールの信頼ポリシーは `repo:<owner>/<repo>:ref:refs/heads/master` に固定してある
+(`var.github_deploy_refs`)。ここを緩めると同じ GitHub OIDC を使う任意のリポジトリから
+引き受けられてしまうので、`repo:*` のような書き方はしないこと。
+
+### 3. 実コードを載せる
+
+`master` に push、または `deploy-lambda` を workflow_dispatch で実行する。
+これで `live` エイリアスがプレースホルダーから実コードのバージョンに移る。
+
+CloudFront の既定ドメインで動作確認する。
+
+```bash
+DOMAIN=$(terraform output -raw cloudfront_domain_name)
+curl -s "https://$DOMAIN/version-short/ms-dotnettools.csharp.svg" | head -c 200
+```
+
+- クエリ文字列ごとに別のバッジが返るか
+- 2 回目以降に `X-Cache: Hit from cloudfront` が出るか
+- Function URL を直接叩くと 403 になるか (`terraform output -raw lambda_function_url`)
+
+### 4. 独自ドメインを付ける
+
+```bash
+terraform apply -var='enable_custom_domain=true' -var='manage_dns=true'
+```
+
+## 付録: DNS を別のレジストラから移管する場合
+
+apex ドメインは CNAME が使えず、CloudFront に固定 IP も無いため ALIAS が必須。
+Route 53 以外の DNS から移す場合は順序に注意する。
+
+1. **証明書を先に通す。** ACM の DNS 検証は権威 DNS を見るため、NS を移す前に検証用 CNAME を
+   **移管元に手動で追加**する (`terraform output acm_validation_records`)。順序を逆にすると
+   NS を切り替えた瞬間に証明書エラーになる。
+2. **Route 53 にゾーンを作り、移管元と突き合わせる。** NS を変えるまでは無影響。
+   **MX と SPF を落とすとメール受信が止まる。** 移管元のゾーンファイルをエクスポートして
+   1 件ずつ確認すること。外部からは AXFR できないので、公開解決の総当たりでは漏れる。
+3. **レジストラの NS を Route 53 に向ける。** ここが実際の切り替え点。浸透には数時間かかり、
+   その間はリゾルバごとに新旧が混在する。
+
+```bash
+terraform output route53_name_servers
+dig +short NS vsmarketplacebadges.dev    # 浸透の確認
+```
