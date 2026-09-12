@@ -60,7 +60,7 @@ resource "aws_lambda_function" "this" {
 
   # Amazon.Lambda.AspNetCoreServer.Hosting を使う場合、ハンドラーはアセンブリ名だけでよい。
   # Startup.cs の AddAWSLambdaHosting が Kestrel を Lambda ランタイム API に差し替える。
-  runtime = "dotnet8"
+  runtime = "dotnet10"
   handler = "VSMarketplaceBadges"
 
   filename         = data.archive_file.placeholder.output_path
