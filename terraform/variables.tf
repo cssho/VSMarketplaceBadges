@@ -148,6 +148,47 @@ variable "apprunner_validation_records" {
   }
 }
 
+variable "forwarded_query_strings" {
+  description = <<-EOT
+    CloudFront がキャッシュキーに含め、オリジンへ転送するクエリ文字列。
+
+    ここに無いパラメータは**キャッシュキーにも入らず、オリジンにも渡らない**。
+    `?cb=<乱数>` のような細工でキャッシュを迂回し、Lambda と上流 (Marketplace / shields.io) へ
+    無制限にリクエストを誘発する攻撃を防ぐのが目的。全転送 (all) だと実際に迂回できていた。
+
+    中身は shields.io が解釈するパラメータと、このアプリ自身が使う subject / color。
+    shields.io が新しいパラメータを増やしたらここに足す。足し忘れるとそのパラメータが
+    効かなくなるだけで、壊れはしない。
+
+    **CloudFront のキャッシュポリシーに入れられるクエリ文字列は既定で 10 個まで。**
+    超えると TooManyQueryStringsInCachePolicy で apply が失敗する。増やしたい場合は
+    どれかを落とすか、サービスクォータの引き上げを申請する。
+
+    shields.io の cacheSeconds は意図的に含めていない。当サービスのキャッシュ時間は
+    CloudFront 側の設定で決まるため呼び出し側が指定しても実効性が薄く、10 個の枠を使うに
+    値しないと判断した。
+  EOT
+  type        = list(string)
+  default = [
+    "color",
+    "label",
+    "labelColor",
+    "link",
+    "logo",
+    "logoColor",
+    "logoSize",
+    "logoWidth",
+    "style",
+    "subject",
+  ]
+}
+
+variable "access_log_retention_days" {
+  description = "CloudFront アクセスログの保持日数。攻撃の事後追跡用なので長期保存は不要。"
+  type        = number
+  default     = 90
+}
+
 variable "alarm_email" {
   description = <<-EOT
     アラームと予算超過の通知先メールアドレス。空ならメール購読と予算を作らない

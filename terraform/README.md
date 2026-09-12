@@ -8,17 +8,28 @@ App Runner がメンテナンスモードに入った (2026/4/30 以降は新規
 ```
 Route 53 (apex: vsmarketplacebadges.dev)
   └─ CloudFront                         ACM 証明書は us-east-1
-       ├─ Cache Policy: クエリ文字列を全てキャッシュキーに含める ★
+       ├─ Cache Policy: 許可したクエリ文字列だけをキャッシュキーに含める ★
        ├─ TTL 3600 (オリジンの [ResponseCache(Duration = 3600)] に合わせる)
        └─ Origin: Lambda Function URL (AWS_IAM + OAC で直叩きを封鎖)
-            └─ Lambda (dotnet8, SnapStart, alias=live)
+            └─ Lambda (dotnet8, alias=live)  ※SnapStart はコスト都合で無効
                  └─ 既存の ASP.NET Core (wwwroot も同梱)
                       └─ stdout → CloudWatch Logs (保持 14 日)
 ```
 
-★ `query_string_behavior = "all"` は落とせない。`BadgeController` が `Request.QueryString` を
-そのまま shields.io に転送しているため (`?color=blue` などのカスタマイズ)、キャッシュキーから
-クエリ文字列を外すと全バッジが最初にキャッシュされた 1 枚に化ける。
+★ クエリ文字列は **allowlist** (`var.forwarded_query_strings`) で扱う。両側に落とし穴がある。
+
+- **キャッシュキーから完全に外してはいけない。** `BadgeController` が `Request.QueryString` を
+  そのまま shields.io に転送しているため (`?color=blue` などのカスタマイズ)、外すと全バッジが
+  最初にキャッシュされた 1 枚に化ける。
+- **かといって `all` にもしない。** `?cb=<乱数>` を付けるだけでキャッシュを迂回でき、Lambda と
+  上流 (Marketplace / shields.io) へ無制限にリクエストを誘発できる。課金だけでなく、上流から
+  当サービスの IP が遮断されるリスクがある。
+
+shields.io が新しいパラメータを増やしたら `forwarded_query_strings` に足す。足し忘れても
+そのパラメータが効かなくなるだけで壊れはしない。
+
+アクセスログは専用の S3 バケットに `var.access_log_retention_days` 日だけ保存する。
+WAF を入れていないぶん、キャッシュ迂回の試行を後から追える証跡として置いている。
 
 ## 責務の分担
 
