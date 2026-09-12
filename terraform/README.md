@@ -11,7 +11,7 @@ Route 53 (apex: vsmarketplacebadges.dev)
        ├─ Cache Policy: 許可したクエリ文字列だけをキャッシュキーに含める ★
        ├─ TTL 3600 (オリジンの [ResponseCache(Duration = 3600)] に合わせる)
        └─ Origin: Lambda Function URL (AWS_IAM + OAC で直叩きを封鎖)
-            └─ Lambda (dotnet8, alias=live)  ※SnapStart はコスト都合で無効
+            └─ Lambda (dotnet10, alias=live)  ※SnapStart はコスト都合で無効
                  └─ 既存の ASP.NET Core (wwwroot も同梱)
                       └─ stdout → CloudWatch Logs (保持 14 日)
 ```

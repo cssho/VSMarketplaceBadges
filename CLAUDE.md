@@ -18,7 +18,7 @@ dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
 
-- ターゲットは `net8.0` (LTS)。リポジトリルートに `VSMarketplaceBadges.sln` と
+- ターゲットは `net10.0` (LTS、2028年11月まで)。リポジトリルートに `VSMarketplaceBadges.sln` と
   `VSMarketplaceBadges.csproj` の両方があるため、Web プロジェクトだけを対象にするコマンドでは
   明示的にプロジェクトを指定する必要がある (`dotnet publish VSMarketplaceBadges.csproj`)。
   指定しないと MSBuild が曖昧さでエラーになる。
@@ -107,6 +107,18 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
   型付き `HttpClient` を経由する。新しい外部呼び出しも `HttpClient` を直接 new せず同じ方式で追加する。
   ポリシーは `RetryPolicy()` / `PerAttemptTimeoutPolicy()` に切り出してあるので、両クライアントで共有すること。
 - コメント (`//` と XML ドキュメントコメントの両方) は日本語で書く。
+
+## Native AOT は採用しない
+
+.NET 10 移行時に検討したが見送った。**ASP.NET Core MVC は Native AOT に非対応**で、
+[対応しているのは Minimal API のみ](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/native-aot?view=aspnetcore-10.0)。
+このアプリは `AddControllers` / `[FromRoute]` / `[FromQuery]` のモデルバインド /
+`ImageOutputFormatter : OutputFormatter` / `ObjectResult` と MVC に深く依存しているため、
+AOT 化はリクエスト処理層の全面書き換えになる。
+
+得られるのはコールドスタートの短縮だが、バッジは CloudFront に 1 時間キャッシュされ
+(ヒット時 20〜30ms)、コールドスタートに当たる利用者は稀。Lambda の実行費用も無料枠内で $0。
+SnapStart を切ったのと同じ理由で、書き換えのリスクに見合わない。
 
 ## SnapStart は意図的に無効
 
