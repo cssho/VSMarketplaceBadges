@@ -27,6 +27,25 @@ namespace VSMarketplaceBadges.Controllers
         /// </summary>
         private const int FallbackCacheSeconds = 60;
 
+        /// <summary>
+        /// バッジ応答に付ける CSP。
+        /// </summary>
+        /// <remarks>
+        /// SVG は同一オリジンの文書として直接開かれるとスクリプトを実行できる。上流 (shields.io) の
+        /// 応答をそのまま自ドメインで配信している以上、万一攻撃者が制御するバイト列を引けた場合に
+        /// XSS になりうるので、スクリプトを実行させない層をここで 1 枚挟む。
+        ///
+        /// CloudFront の Response Headers Policy ではなくアプリ側で付けているのは、
+        /// ドキュメントページ (wwwroot/index.html) が jQuery・Bootstrap・Twitter ウィジェットと
+        /// インラインスクリプトを使っており、配信全体に同じ CSP をかけると壊れるため。
+        /// 全体に効かせる安全なヘッダー (HSTS / nosniff など) は CloudFront 側で付与している。
+        ///
+        /// style-src に unsafe-inline を許すのは、直接開いたときにバッジの見た目を保つため。
+        /// img タグ経由での描画には CSP は関与しないので、表示には影響しない。
+        /// </remarks>
+        private const string BadgeContentSecurityPolicy =
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
         private readonly ILogger logger;
         private readonly IVSMarketplaceService marketplace;
         private readonly IShiledsIoService shiledsIo;
@@ -59,6 +78,8 @@ namespace VSMarketplaceBadges.Controllers
 
                 Response.Headers[HeaderNames.CacheControl] = $"public, max-age={FallbackCacheSeconds}";
             }
+
+            Response.Headers[HeaderNames.ContentSecurityPolicy] = BadgeContentSecurityPolicy;
 
             return new ObjectResult(image)
             {
