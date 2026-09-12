@@ -51,8 +51,17 @@ resource "aws_cloudfront_cache_policy" "badges" {
       header_behavior = "none"
     }
 
+    # allowlist にしているのは、任意のクエリ文字列でキャッシュを迂回されるのを防ぐため。
+    # "all" だと `?cb=<乱数>` を付けるだけで毎回オリジンに抜け、Lambda と上流
+    # (Marketplace / shields.io) へ無制限にリクエストを誘発できた。
+    # 一覧に無いパラメータはキャッシュキーにも入らずオリジンにも渡らないので、
+    # 細工した URL は既存のキャッシュにヒットする。
     query_strings_config {
-      query_string_behavior = "all"
+      query_string_behavior = "whitelist"
+
+      query_strings {
+        items = var.forwarded_query_strings
+      }
     }
   }
 }
@@ -109,6 +118,67 @@ resource "aws_cloudfront_response_headers_policy" "security" {
   }
 }
 
+# ----------------------------------------------------------------------------
+# アクセスログ
+#
+# WAF を入れていないぶん、攻撃を受けたときに何が起きたかを後から追える証跡を残す。
+# キャッシュ迂回の試行 (同一パスにランダムなクエリが並ぶ) はログでしか見えない。
+# ----------------------------------------------------------------------------
+resource "aws_s3_bucket" "cloudfront_logs" {
+  bucket = "${var.function_name}-cf-logs-${data.aws_caller_identity.current.account_id}"
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
+}
+
+# CloudFront の標準ログ配信は ACL でログファイルを書き込むため、ACL を有効にしておく必要がある。
+# S3 の既定 (BucketOwnerEnforced) のままだと配信が失敗する。
+# 上の public access block でパブリック ACL は塞いであるので、公開はされない。
+resource "aws_s3_bucket_ownership_controls" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+    bucket_key_enabled = true
+  }
+}
+
+# ログは貯め続けても意味が薄いので期限を切る。放置すると保管料だけが増える。
+resource "aws_s3_bucket_lifecycle_configuration" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+
+  rule {
+    id     = "expire"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = var.access_log_retention_days
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "badges" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -117,6 +187,14 @@ resource "aws_cloudfront_distribution" "badges" {
   default_root_object = "index.html"
 
   aliases = var.enable_custom_domain ? [var.domain_name] : []
+
+  logging_config {
+    bucket = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+    prefix = "cloudfront/"
+
+    # クエリ文字列を記録する。キャッシュ迂回の試行を見分けるのに必要な情報がここにある。
+    include_cookies = false
+  }
 
   origin {
     origin_id                = "lambda"
