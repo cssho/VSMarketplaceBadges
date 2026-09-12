@@ -97,15 +97,15 @@ SnapStart はここでは切っておく。SnapStart はバージョン発行時
 `master` に push、または `deploy-lambda` を workflow_dispatch で実行する。
 これで `live` エイリアスがプレースホルダーから実コードのバージョンに移る。
 
-### 4. SnapStart を有効化する
+### 4. 残りを有効化する
 
 ```bash
 terraform apply -var='enable_custom_domain=false' -var='manage_dns=false'
 ```
 
-`enable_snapstart` の既定は true なので、`-var` を外すだけで有効になる。
-設定が効くのは**次に発行されるバージョンから**なので、有効化したあともう一度
-`deploy-lambda` を走らせる。
+`enable_snapstart` は**既定 false のままでよい**。一度有効にして実測したが、スナップショット
+保管料が Lambda 費用の 94% を占める一方で効果は 482ms にとどまり、割に合わなかった。
+判断の根拠は `variables.tf` の `enable_snapstart` と CLAUDE.md を参照。
 
 ## 段階移行の手順
 
@@ -115,25 +115,19 @@ apex は Gandi の ALIAS で App Runner を指していた。これを Route 53 
 apex は CNAME が使えず、CloudFront には固定 IP が無いので ALIAS が必須。
 **実際の切り替えは Terraform ではなく Gandi のレジストラ設定で NS を変える操作**になる。
 
-### 切り戻しは DNS ではなくオリジン切替で行う
+### 切り戻し
 
-apex を App Runner に戻す DNS 手段が存在しない。Route 53 で App Runner を ALIAS ターゲットに
-できるのは **2022-08-01 以降に作成されたサービスだけ**で、このサービスは 2022-05-06 作成のため
-対象外。そこで DNS は常に CloudFront を指したままにし、CloudFront のオリジンを差し替える。
-
-```
-apex A/AAAA ALIAS → CloudFront  (固定・変更しない)
-                      ├─ origin = Lambda Function URL    ← 通常
-                      └─ origin = App Runner 既定ドメイン ← 切り戻し
-```
+App Runner を撤去したため、切り戻しは **Lambda エイリアス (`live`) の版戻し**のみ。
 
 ```bash
-terraform apply -var='rollback_to_apprunner=true'    # 切り戻し
-terraform apply                                       # 復帰
+aws lambda update-alias --function-name vsmarketplace-badges --name live \
+  --function-version <前の版>
 ```
 
-DNS の TTL に左右されず、反映は CloudFront の伝播 (数分) だけで済む。
-ただし切り戻し先の App Runner は **2022 年のコードを配信する** (CLAUDE.md 参照)。
+即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
+
+移行期間中は CloudFront のオリジンを App Runner に差し替える方式を使い、往復約 2 分で
+機能することをリハーサルで実証したが、App Runner の撤去に伴い廃止した。
 
 ### フェーズ 1 — 裏で検証
 
@@ -233,20 +227,28 @@ curl -sI https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg
 
 `x-cache` が出れば CloudFront 経由に切り替わっている。
 
-問題が出たら DNS ではなく**オリジン切替**で戻す (上記)。
+当時は問題が出たら CloudFront のオリジンを App Runner に差し替えて戻す運用だった
+(App Runner 撤去に伴い廃止。現在の手段は上の「切り戻し」を参照)。
 
-### 移行完了後の後片付け
+### 移行完了後の後片付け (完了済み)
 
-NS 切り替えが定着したら:
+App Runner とその周辺は撤去済み。何を消したかの記録:
 
-1. App Runner サービスを削除。**削除すると `rollback_to_apprunner` が使えなくなる**ので、
-   しばらく様子を見てから
-2. `.github/workflows/push-ecr.yml` と `Dockerfile` を削除 (ローカル開発は `dotnet watch run`)
-3. ECR リポジトリを削除。これで長期アクセスキーの利用者がいなくなるので、IAM ユーザー
-   `for-github-actions` とそのアクセスキー、Secrets の `AWS_ACCESS_KEY_ID` /
-   `AWS_SECRET_ACCESS_KEY` / `AWS_ECR_REPO_NAME` も削除する
-4. `apprunner_validation_records` と `apprunner_service_url` を削除
-5. S3 の `vsmarketplace-badges/logs` を必要に応じて削除 (ログ出力先は CloudWatch に移行済み)
+| 対象 | 備考 |
+| --- | --- |
+| App Runner サービス | カスタムドメインの関連付けも同時に消える |
+| ECR リポジトリ (21 イメージ) | |
+| `push-ecr.yml` / `Dockerfile` / `.dockerignore` | ローカル開発は `dotnet watch run` |
+| IAM ユーザー `for-github-actions` + アクセスキー | CI は OIDC のみになった |
+| IAM ユーザー `localdev` + `s3policy` | 旧ログバケット専用。キーは 2022-06-06 以降未使用だった |
+| Secrets `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ECR_REPO_NAME` | |
+| S3 `vsmarketplace-badges` | 旧ログバケット。中身は 2022-06-06 の Development ログ 2 件のみ |
+| Route 53 の App Runner 証明書検証 CNAME × 2 | |
+| `rollback_to_apprunner` / `apprunner_service_url` / `apprunner_validation_records` | |
+
+**これでアカウントに長期アクセスキーは 1 本も残っていない。**
+
+切り戻し手段は Lambda エイリアスの版戻しのみになった。詳細は上の「切り戻し」を参照。
 
 ## タイムアウトの予算
 

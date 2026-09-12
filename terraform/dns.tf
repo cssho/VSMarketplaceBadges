@@ -13,10 +13,9 @@
 #   4. Route 53 にゾーンとレコード一式を作る (manage_dns = true)。NS はまだ Gandi なので無影響
 #   5. Gandi のレジストラ設定で NS を Route 53 に向ける ← ここが実際の切り替え
 #
-# 切り戻しは DNS ではなく CloudFront のオリジン切替で行う (var.rollback_to_apprunner)。
-# App Runner を Route 53 の ALIAS ターゲットにできるのは 2022-08-01 以降に作成された
-# サービスだけで、このサービスは 2022-05-06 作成のため対象外。DNS 経路での切り戻しは
-# そもそも成立しない。詳細は README.md を参照。
+# 移行期間中は CloudFront のオリジンを App Runner に差し替えることで切り戻していたが、
+# App Runner は撤去済み。現在の切り戻し手段は Lambda エイリアス (live) の版戻しのみ。
+# 詳細は README.md を参照。
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
@@ -158,8 +157,6 @@ resource "aws_route53_record" "webmail" {
 
 # --- 証明書の検証レコード ---------------------------------------------------
 # NS 移管前は Gandi 側の手動レコードで検証される。移管後は自動更新のためにこちらが要る。
-# App Runner の証明書検証レコードは apprunner_validation_records で別に引き継ぐ
-# (App Runner を撤去するまで証明書の更新に必要)。
 resource "aws_route53_record" "acm_validation" {
   for_each = var.manage_dns && var.enable_custom_domain ? {
     for o in aws_acm_certificate.this[0].domain_validation_options : o.domain_name => o
@@ -171,18 +168,4 @@ resource "aws_route53_record" "acm_validation" {
   records         = [each.value.resource_record_value]
   ttl             = 60
   allow_overwrite = true
-}
-
-#
-# Gandi のゾーンには同じ検証レコードが「相対名」と「FQDN を相対名の欄に入れてしまったもの」の
-# 2 通りで登録されており、後者は ....dev.vsmarketplacebadges.dev という二重ドメインになっている。
-# 無害だが不要なので、移管するのは相対名の方だけ。
-resource "aws_route53_record" "apprunner_validation" {
-  for_each = var.manage_dns ? var.apprunner_validation_records : {}
-
-  zone_id = local.zone_id
-  name    = "${each.key}.${var.domain_name}"
-  type    = "CNAME"
-  ttl     = 10800
-  records = [each.value]
 }
