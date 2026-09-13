@@ -182,4 +182,9 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
   SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
   配信内容が変わらない。
 - 認証は **OIDC** のみ。長期アクセスキーは使わない (App Runner 撤去時に IAM ユーザーごと削除済み)。
+- アクションは **SHA で固定**する。タグは書き換え可能なので、`@v4` のような参照はアクション
+  提供者が侵害されたときに任意のコードを CI で実行させてしまう。このワークフローは OIDC で
+  デプロイ権限を持つロールを引き受けるため、影響が大きい。新しいアクションを足すときも
+  `uses: owner/repo@<40桁SHA> # vX.Y.Z` の形にすること。
+  固定したままだと古い版に塩漬けになるので、追随は `.github/dependabot.yml` に任せている。
 
