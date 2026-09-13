@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  # ワークフローのアクションは SHA で固定してある。固定したままだと古い版に塩漬けになり、
+  # 脆弱性修正を取り逃がすので、Dependabot に追随させる。
+  # SHA 固定でも Dependabot は追随でき、コメントのバージョン表記も一緒に更新してくれる。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+
+  # NuGet パッケージ。.NET のバージョン更新もここで拾える。
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+    groups:
+      # Serilog 系はまとめて上げないと版ずれで壊れることがある。
+      serilog:
+        patterns:
+          - Serilog*
+      # テスト系は本番に影響しないので 1 本にまとめる。
+      test:
+        patterns:
+          - xunit*
+          - Microsoft.NET.Test.Sdk
