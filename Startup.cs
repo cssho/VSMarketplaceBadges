@@ -46,6 +46,7 @@ namespace VSMarketplaceBadges
                 x.BaseAddress = new Uri("https://marketplace.visualstudio.com");
                 x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
                 x.DefaultRequestHeaders.Add("Accept", "application/json;api-version=3.0-preview.1");
+                x.MaxResponseContentBufferSize = MarketplaceMaxResponseBytes;
             }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
@@ -57,6 +58,7 @@ namespace VSMarketplaceBadges
                 {
                     x.BaseAddress = new Uri("https://img.shields.io");
                     x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
+                    x.MaxResponseContentBufferSize = ShieldsIoMaxResponseBytes;
                 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                 {
                     AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
@@ -75,6 +77,20 @@ namespace VSMarketplaceBadges
                 options.OutputFormatters.Insert(0, new ImageOutputFormatter());
             });
         }
+
+        // 外部応答をメモリに読み込む上限。上限を超えると HttpClient が例外を投げ、
+        // BadgeController のフォールバック経路に落ちて unavailable バッジが返る。
+        //
+        // 上流が異常に大きな応答を返したときに Lambda のメモリ (1024MB) を食い潰さないための
+        // 保険であって、きつく絞るのが目的ではない。実測値に対して十分な余裕を取ってある。
+        //
+        //   Marketplace の extensionquery (flags=914) : 実測 4〜47KB → 4MB (約 85 倍)
+        //   shields.io のバッジ                        : 実測 0.8〜2KB → 1MB (約 500 倍)
+        //
+        // Marketplace 側が大きいのは、バージョン数の多い拡張機能が versions/files/statistics を
+        // 丸ごと返すため。バージョンが桁違いに多い拡張機能でも収まるように取っている。
+        private const long MarketplaceMaxResponseBytes = 4L * 1024 * 1024;
+        private const long ShieldsIoMaxResponseBytes = 1L * 1024 * 1024;
 
         // 外部呼び出しの時間予算。Lambda では待機時間がそのまま課金されるので、
         // ポリシーを 3 層 (登録順に外側から内側) にして上限を明示している。
