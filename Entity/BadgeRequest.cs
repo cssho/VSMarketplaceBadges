@@ -58,8 +58,8 @@ namespace VSMarketplaceBadges.Entity
         /// </summary>
         /// <remarks>
         /// 値は <see cref="ShiledsIoService"/> で shields.io のパスに文字列連結されるため、
-        /// 素通しするとパスを書き換えられる。実際 <c>?subject=../../badge/PWNED</c> で
-        /// 任意の shields.io パスに到達できていた。<see cref="Sanitize"/> で防ぐ。
+        /// 素通しすると <c>?subject=../../badge/X</c> でパスを書き換えられる。
+        /// <see cref="Sanitize"/> で防ぐ。
         /// </remarks>
         [FromQuery]
         public string Subject

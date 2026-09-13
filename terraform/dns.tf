@@ -2,20 +2,13 @@
 # 証明書と DNS
 #
 # 対象は apex ドメイン (vsmarketplacebadges.dev)。サブドメインではないため CNAME が使えず、
-# CloudFront を向けるには ALIAS が要る。DNS は元々 Gandi LiveDNS にあり、apex は Gandi の
-# ALIAS で App Runner を指していた。これを Route 53 に移管する。
+# CloudFront を向けるには ALIAS が要る。ゾーンは Gandi LiveDNS から移管済み。
 #
-# 移管の順序が重要:
-#   1. 証明書を発行する (このファイルの aws_acm_certificate)
-#   2. 検証用 CNAME 2 本を **Gandi に手動で追加** する。ACM の DNS 検証は権威 DNS を見るので、
-#      NS が Gandi のうちは Route 53 に入れても検証されない
-#   3. CloudFront に証明書と別名を付ける (enable_custom_domain = true)
-#   4. Route 53 にゾーンとレコード一式を作る (manage_dns = true)。NS はまだ Gandi なので無影響
-#   5. Gandi のレジストラ設定で NS を Route 53 に向ける ← ここが実際の切り替え
+# メール (MX / SPF) と www / blog / webmail は Gandi から引き継いだもの。落とすと受信や
+# 既存サブドメインが止まるので消さないこと。
 #
-# 移行期間中は CloudFront のオリジンを App Runner に差し替えることで切り戻していたが、
-# App Runner は撤去済み。現在の切り戻し手段は Lambda エイリアス (live) の版戻しのみ。
-# 詳細は README.md を参照。
+# 別のレジストラから移管し直す場合の順序は README.md「段階移行の手順」を参照。ACM の DNS 検証は
+# 権威 DNS を見るため、NS を移す前に証明書を通しておく必要がある。
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------

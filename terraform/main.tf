@@ -36,8 +36,7 @@ resource "aws_iam_role" "lambda" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
-# ログを CloudWatch Logs に書く権限だけ。ログ出力先を S3 から stdout に変えたので、
-# App Runner 時代に必要だった S3 への PutObject 権限はもう要らない。
+# ログを CloudWatch Logs に書く権限だけ。アプリは stdout に出すので S3 権限は不要。
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
