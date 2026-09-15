@@ -34,8 +34,13 @@ namespace VSMarketplaceBadges.Utility
         /// </remarks>
         public static string ForLog(string value)
         {
-            if (string.IsNullOrEmpty(value))
-                return value;
+            // 引数をそのまま返さない。ここで return value; と書くと Regex.Replace を迂回する
+            // 経路ができ、CodeQL がメソッド全体を汚染の通り道と見なしてアラートが残る。
+            // 返る値は同じ (null なら null、空なら空) だが、定数を返すことで経路を断つ。
+            if (value is null)
+                return null;
+            if (value.Length == 0)
+                return string.Empty;
 
             var stripped = ControlCharacters.Replace(value, string.Empty);
 
