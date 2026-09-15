@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using VSMarketplaceBadges.Entity;
+using VSMarketplaceBadges.Utility;
 
 namespace VSMarketplaceBadges.Services
 {
@@ -62,7 +63,8 @@ namespace VSMarketplaceBadges.Services
                     var raw = extensions.Results.FirstOrDefault()?.Extensions?.FirstOrDefault();
                     if (raw == null)
                     {
-                        logger.LogInformation("Not found item: {itemName}", itemName);
+                        // itemName は URL から来る利用者入力なので、そのままログに流さない。
+                        logger.LogInformation("Not found item: {itemName}", LogSanitizer.ForLog(itemName));
                         return null;
                     }
                     var item = new VSMarketplaceItem(raw);
