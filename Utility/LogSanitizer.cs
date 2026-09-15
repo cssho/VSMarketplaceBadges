@@ -1,4 +1,4 @@
-using System.Text;
+using System.Text.RegularExpressions;
 
 namespace VSMarketplaceBadges.Utility
 {
@@ -9,6 +9,18 @@ namespace VSMarketplaceBadges.Utility
     {
         /// <summary>ログに残す 1 値あたりの最大長。</summary>
         public const int MaxLength = 128;
+
+        /// <summary>
+        /// 制御文字 (Unicode カテゴリ Cc)。<c>char.IsControl</c> と同じ範囲。
+        /// </summary>
+        /// <remarks>
+        /// 自前のループではなく <see cref="Regex.Replace(string, string)"/> を使うのは、
+        /// CodeQL の cs/log-forging がサニタイザとして認識するのが
+        /// String.Replace / String.Remove / String.ReplaceLineEndings / Regex.Replace に限られ、
+        /// StringBuilder で 1 文字ずつ弾く実装は barrier と見なされないため。
+        /// 挙動は変わらないが、こう書くことでアラートを抑制ではなく解消できる。
+        /// </remarks>
+        private static readonly Regex ControlCharacters = new Regex(@"\p{Cc}");
 
         /// <summary>
         /// 制御文字を落とし、長さを <see cref="MaxLength"/> で切り詰める。
@@ -25,16 +37,11 @@ namespace VSMarketplaceBadges.Utility
             if (string.IsNullOrEmpty(value))
                 return value;
 
-            var buffer = new StringBuilder(System.Math.Min(value.Length, MaxLength));
-            foreach (var c in value)
-            {
-                if (buffer.Length >= MaxLength)
-                    return buffer.Append('…').ToString();
-                if (char.IsControl(c))
-                    continue;
-                buffer.Append(c);
-            }
-            return buffer.ToString();
+            var stripped = ControlCharacters.Replace(value, string.Empty);
+
+            return stripped.Length <= MaxLength
+                ? stripped
+                : stripped.Substring(0, MaxLength) + "…";
         }
     }
 }
