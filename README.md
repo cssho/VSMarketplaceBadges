@@ -1,30 +1,32 @@
 # VSMarketplaceBadges
 
-Visual Studio Marketplace 拡張機能向けのバッジ配信サービス。
+*[日本語](README.ja.md)*
 
-拡張機能のバージョン・インストール数・評価などを [shields.io](https://shields.io) 形式の
-バッジ画像として返します。README に画像として貼るだけで使えます。
+Badges for Visual Studio Marketplace extensions.
+
+Serves an extension's version, install count, rating and other stats as a
+[shields.io](https://shields.io)-style badge image. Drop it into a README as an image and you're done.
 
 **https://vsmarketplacebadges.dev**
 
-## 使い方
+## Usage
 
 ```
-https://vsmarketplacebadges.dev/{バッジ種別}/{発行者}.{拡張機能名}.{svg|png}
+https://vsmarketplacebadges.dev/{badge type}/{publisher}.{extension}.{svg|png}
 ```
 
-`{発行者}.{拡張機能名}` は Marketplace の URL の `itemName` と同じ値です。
+`{publisher}.{extension}` is the `itemName` from the extension's Marketplace URL.
 
 ```markdown
 [![Version](https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg)](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp)
 ```
 
-## バッジ種別
+## Badge types
 
-| 種別 | 表示例 |
+| Type | Renders as |
 | --- | --- |
-| `version` | `Visual Studio Marketplace \| v2.151.28` |
-| `version-short` | `VS Marketplace \| v2.151.28` |
+| `version` | `Visual Studio Marketplace \| v2.160.4` |
+| `version-short` | `VS Marketplace \| v2.160.4` |
 | `installs` | `installs \| 236364283` |
 | `installs-short` | `installs \| 236M` |
 | `downloads` | `downloads \| 290992013` |
@@ -36,46 +38,47 @@ https://vsmarketplacebadges.dev/{バッジ種別}/{発行者}.{拡張機能名}.
 | `trending-weekly` | `trending--weekly \| 34` |
 | `trending-monthly` | `trending--monthly \| 56` |
 
-拡張子は `.svg` と `.png` が使えます。README に貼るなら `.svg` を推奨します。
+Both `.svg` and `.png` work. Prefer `.svg` for READMEs.
 
-## 見た目のカスタマイズ
+## Customizing the look
 
-shields.io のパラメータをクエリ文字列で渡せます。
+shields.io parameters are passed through as query strings.
 
 ```
 https://vsmarketplacebadges.dev/version-short/ms-dotnettools.csharp.svg?color=blue&style=flat-square
 ```
 
-対応するパラメータ:
+Supported parameters:
 
 `color` `label` `labelColor` `link` `logo` `logoColor` `logoSize` `logoWidth` `style` `subject`
 
-`subject` はバッジ左側のラベルを差し替えます (`label` と同じ用途)。
-ここに無いパラメータは無視されます。
+`subject` overrides the left-hand label (same purpose as `label`).
+Anything not on this list is ignored.
 
-## 挙動
+## Behavior
 
-- レスポンスは 1 時間キャッシュされます。拡張機能を更新しても反映まで最大 1 時間かかります。
-- 存在しない拡張機能を指定すると `unknown` と表示されたバッジを返します (エラーにはなりません)。
-- 上流 (Marketplace API / shields.io) に障害があるときは `unavailable` バッジを返します。
-- 未知のバッジ種別や拡張子は `400` を返します。
+- Responses are cached for one hour. Expect up to an hour before an extension update shows up.
+- An unknown extension renders a badge reading `unknown` rather than returning an error.
+- If an upstream (Marketplace API or shields.io) is down, a bundled `unavailable` badge is served.
+- An unknown badge type or file extension returns `400`.
 
-## 開発
+## Development
 
-.NET 10 SDK が必要です。
+Requires the .NET 10 SDK.
 
 ```bash
-dotnet build                                            # ソリューション全体
-dotnet test                                             # ユニットテスト
+dotnet build                                            # whole solution
+dotnet test                                             # unit tests
 dotnet watch run --project VSMarketplaceBadges.csproj   # http://localhost:5000
 ```
 
-リポジトリルートに `.sln` と `.csproj` の両方があるため、Web プロジェクトだけを対象にする
-コマンドではプロジェクトを明示してください (`dotnet publish VSMarketplaceBadges.csproj`)。
+The repository root holds both the `.sln` and the `.csproj`, so name the project explicitly for
+commands that should target only the web project (`dotnet publish VSMarketplaceBadges.csproj`).
 
-バッジ種別の追加手順や実装上の注意は [CLAUDE.md](CLAUDE.md) にまとめています。
+How to add a badge type, plus the implementation gotchas worth knowing, are in
+[CLAUDE.md](CLAUDE.md) (Japanese).
 
-## 構成
+## Architecture
 
 ```
 vsmarketplacebadges.dev (Route 53)
@@ -83,9 +86,17 @@ vsmarketplacebadges.dev (Route 53)
                                     └─ shields.io
 ```
 
-`master` へのマージで GitHub Actions が Lambda にデプロイします。インフラは Terraform で
-管理しており、詳細は [terraform/README.md](terraform/README.md) を参照してください。
+Merging to `master` deploys to Lambda via GitHub Actions. Infrastructure is managed with
+Terraform — see [terraform/README.md](terraform/README.md) (Japanese) for details.
 
-## ライセンス
+## Contributing
+
+Issues and pull requests are welcome.
+
+Found a security issue? Please report it through
+[private vulnerability reporting](https://github.com/cssho/VSMarketplaceBadges/security/advisories/new)
+rather than a public issue.
+
+## License
 
 [MIT](LICENSE)

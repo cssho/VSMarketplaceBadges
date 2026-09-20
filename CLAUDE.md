@@ -9,6 +9,18 @@
 Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信する ASP.NET Core の Web サービス。
 ルート形式: `GET /{badgeType}/{itemName}.{svg|png}` — 公開ドキュメントページは `wwwroot/index.html`。
 
+ドキュメントの構成:
+
+| ファイル | 言語 | 対象読者 |
+| --- | --- | --- |
+| `README.md` | **英語** | OSS の利用者。GitHub の既定表示になるので英語 |
+| `README.ja.md` | 日本語 | 同内容の日本語版。相互にリンクしてある |
+| `CLAUDE.md` (これ) | 日本語 | 実装者 |
+| `terraform/README.md` | 日本語 | インフラ運用者 |
+
+**README を変更したら両方の言語を揃えること。** 片方だけ直すと乖離する。
+それ以外のドキュメントとコード中のコメントは日本語で書く。
+
 ## ビルドとテスト
 
 ```
