@@ -185,11 +185,15 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
 即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
-- `master` への push は 2 つのワークフローを同時に起動する。**`master` へのマージは本番デプロイに等しい。**
-  - `.github/workflows/deploy-lambda.yml` — 新しい配信経路。publish → ZIP →
-    `update-function-code` → バージョン発行 → `live` エイリアス付け替え → CloudFront 無効化。
-    認証は **OIDC** (`vars.AWS_DEPLOY_ROLE_ARN`)。長期アクセスキーは使わないので、
-    `permissions: id-token: write` を消すとロールを引き受けられなくなる。
+- `master` への push で `.github/workflows/deploy-lambda.yml` が動く。
+  **`master` へのマージは本番デプロイに等しい。**
+  publish → ZIP → `update-function-code` → バージョン発行 → `live` エイリアス付け替え →
+  古いバージョンの掃除 → CloudFront 無効化。
+  認証は **OIDC** (`vars.AWS_DEPLOY_ROLE_ARN`)。長期アクセスキーは使わないので、
+  `permissions: id-token: write` を消すとロールを引き受けられなくなる。
+- **ドキュメントだけの変更ではデプロイが走らない** (`paths-ignore`)。`**/*.md` や `LICENSE`
+  など成果物に入らないファイルが対象。`wwwroot/**` は ZIP に同梱されるので除外していない。
+  コードとドキュメントを同時に変えた場合は通常どおり走る。
 - CloudFront は Lambda の **`live` エイリアス**を向いている。`$LATEST` は公開経路ではなく、
   SnapStart も効かない。デプロイでエイリアスを付け替えるのを飛ばすと、コードを更新しても
   配信内容が変わらない。
