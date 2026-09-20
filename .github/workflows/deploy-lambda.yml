@@ -1,11 +1,27 @@
 name: Deploy Lambda
 
-# App Runner 用の push-ecr.yml とは併存させている。移行期間中は master への push で
-# 両方が動き、App Runner を切り戻し可能な状態のまま最新に保つ。
-# DNS 切り替えが定着したら push-ecr.yml と Dockerfile ごと削除する。
 on:
   push:
     branches: [master]
+
+    # 成果物に入らないファイルだけの変更ではデプロイしない。ドキュメントを直しただけで
+    # バージョン発行・エイリアス付け替え・CloudFront 無効化まで走るのは無駄。
+    #
+    # コードとドキュメントを同時に変更した場合は、対象外のファイルが 1 つでも含まれるので
+    # 通常どおり実行される (paths-ignore は「全ファイルが一致したときだけ skip」)。
+    #
+    # wwwroot/** は除外しない。index.html や unavailable バッジは ZIP に同梱され、
+    # 変更にはデプロイが必要。
+    #
+    # terraform/** も除外しない。Lambda の runtime を変えたときのように、インフラの変更に
+    # コードの再デプロイが必要な場合があるため (.tf だけの変更で無駄に 1 回走るのは許容する)。
+    paths-ignore:
+      - '**/*.md'
+      - LICENSE
+      - .gitignore
+      - .editorconfig
+      - .vscode/**
+      - .github/dependabot.yml
   workflow_dispatch:
 
 env:
