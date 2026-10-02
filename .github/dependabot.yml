@@ -1,5 +1,16 @@
 version: 2
 
+# interval は monthly で維持している。weekly への変更を検討したが見送った理由:
+#
+#   - **脆弱性修正は interval に関係なく即座に PR が来る** (Dependabot security updates が
+#     有効)。interval が支配するのは平時のバージョン更新だけなので、weekly にしても
+#     セキュリティ上の利得は無い。
+#   - このリポジトリでは **PR のマージ = 本番デプロイ + Release (v3.0.x) の作成**。頻度を
+#     上げると依存更新だけのリリースが履歴を埋める。
+#
+# 「依存を常に最新に保ちたい」という方針なら weekly も妥当。その場合も下のグループ化は
+# 併せて効く。
+
 updates:
   # ワークフローのアクションは SHA で固定してある。固定したままだと古い版に塩漬けになり、
   # 脆弱性修正を取り逃がすので、Dependabot に追随させる。
@@ -10,6 +21,14 @@ updates:
       interval: monthly
     commit-message:
       prefix: chore
+    groups:
+      # 1 PR にまとめる。グループ化しないとアクションごとに PR が立ち、マージのたびに
+      # 本番デプロイと Release (v3.0.x) が走る。実際 2026-09-13 は 3 アクションの更新が
+      # 3 PR に分かれ、デプロイも Release も 3 回発生した。
+      # アクションはどれもワークフローの部品で、まとめて上げて壊れたら切り分けは差分で足りる。
+      actions:
+        patterns:
+          - '*'
 
   # NuGet パッケージ。.NET のバージョン更新もここで拾える。
   - package-ecosystem: nuget
