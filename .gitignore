@@ -332,3 +332,6 @@ ASALocalRun/
 logs
 # Test results
 [Tt]est[Rr]esults/
+
+# dotnet publish の出力 (CI と手元で同じコマンドを使うため)
+/publish/
