@@ -1,0 +1,53 @@
+name: Test
+
+# PR の段階でビルドとテストを通す。deploy-lambda.yml は master への push でしか動かないため、
+# これが無いと Dependabot の PR が未検証のままマージされ、壊れる変更が master に入って
+# 初めて気づくことになる。月次で PR が来る運用なので頻度も低くない。
+#
+# ここでは**デプロイしない**。AWS の資格情報も要らないので OIDC の権限も与えない。
+on:
+  pull_request:
+    branches: [master]
+
+    # 成果物に関係ないファイルだけの PR では走らせない。deploy-lambda.yml と同じ考え方。
+    paths-ignore:
+      - '**/*.md'
+      - LICENSE
+      - .gitignore
+      - .editorconfig
+      - .vscode/**
+      - .github/dependabot.yml
+  workflow_dispatch:
+
+# 既定より絞る。このワークフローはコードを読むだけ。
+permissions:
+  contents: read
+
+# 同じ PR に続けて push されたら古い実行を打ち切る。Dependabot のリベースで無駄に
+# 積み上がるのを防ぐ。
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # アクションは SHA で固定する (理由は CLAUDE.md)。deploy-lambda.yml と同じ版に揃えてある。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # ソリューションを明示する。テストプロジェクトのないディレクトリで素の dotnet test を
+      # 実行すると、何も復元せず何も実行せずに exit 0 する = 黙って緑になるゲートになるため。
+      - name: Test
+        run: dotnet test VSMarketplaceBadges.sln --configuration Release
+
+      # 本番と同じ手順で成果物が作れることまで確認する。csproj の変更で publish だけが
+      # 壊れるケースを PR で捕まえたい。
+      - name: Publish
+        run: dotnet publish VSMarketplaceBadges.csproj -c Release -o ./publish

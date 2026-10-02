@@ -185,6 +185,9 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
 即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
+- PR では `.github/workflows/test.yml` が動く (ビルド・テスト・publish のみ、デプロイしない)。
+  これが無いと Dependabot の PR が未検証のままマージされてしまう。AWS の資格情報は使わないので
+  OIDC の権限も与えていない。
 - `master` への push で `.github/workflows/deploy-lambda.yml` が動く。
   **`master` へのマージは本番デプロイに等しい。**
   publish → ZIP → `update-function-code` → バージョン発行 → `live` エイリアス付け替え →
