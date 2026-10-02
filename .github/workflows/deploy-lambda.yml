@@ -33,14 +33,40 @@ env:
 # ロールを引き受けられない。
 permissions:
   id-token: write
-  contents: read
+
+  # Release とタグの作成に書き込みが必要。読み取りだけでは gh release create が 403 になる。
+  # デプロイが成功したときだけ Release を作るので、ここに同居させている
+  # (別ワークフローに分ければ権限を分離できるが、成功を条件にする仕組みが増える)。
+  contents: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 既存タグから次の patch を計算するので、タグを含めた全履歴が必要。
+      # 既定の浅いクローンだとタグが無く、毎回 .0 を作ろうとして衝突する。
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # バージョンは VERSION ファイルの major.minor + 自動採番の patch。
+      # major / minor を上げたいときは VERSION を書き換える (手で patch を決めなくてよい)。
+      # patch は同じ minor の既存タグの最大値 + 1。タグが無ければ 0 から始まる。
+      - name: Resolve version
+        id: version
+        run: |
+          MINOR=$(tr -d ' \n\r' < VERSION)
+          # major.minor の 2 要素だけを受け付ける。patch まで書かれていると
+          # v3.0.1.0 のような 4 要素のタグを作ってしまうので弾く。
+          if ! printf '%s' "$MINOR" | grep -qE '^[0-9]+\.[0-9]+$'; then
+            echo "::error::VERSION の形式が不正です: '$MINOR' (major.minor のみを期待)"
+            exit 1
+          fi
+          PATCH=$(git tag -l "v${MINOR}.*" | sed "s|^v${MINOR}\.||" | grep -E '^[0-9]+$' | sort -n | tail -1)
+          VERSION="${MINOR}.$(( ${PATCH:--1} + 1 ))"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "次のバージョン: v$VERSION (VERSION=$MINOR, 既存 patch 最大=${PATCH:-なし})"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -54,8 +80,13 @@ jobs:
 
       # リポジトリルートに .sln と .csproj が両方あるので、プロジェクトの明示が必須。
       # 省略すると MSBuild が曖昧さでエラーになる。
+      #
+      # バージョンをアセンブリに埋め込む。これが無いと稼働中のコードがどの Release のものか
+      # 成果物から判別できない。
       - name: Publish
-        run: dotnet publish VSMarketplaceBadges.csproj -c Release -o ./publish
+        run: |
+          dotnet publish VSMarketplaceBadges.csproj -c Release -o ./publish \
+            -p:Version=${{ steps.version.outputs.version }}
 
       - name: Package
         run: cd publish && zip -r ../lambda.zip . -x '*.pdb'
@@ -148,3 +179,20 @@ jobs:
             --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
             --paths '/*' \
             --no-cli-pager
+
+      # ここまで来た時点で本番に載っているので、Release はデプロイ済みのものだけを表す。
+      # 途中で失敗したらタグも Release も作られない。
+      #
+      # --generate-notes で前回タグ以降の PR から変更履歴を自動生成する。
+      # ZIP を添付するのは、どの Release がどの成果物かを後から辿れるようにするため。
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --generate-notes \
+            lambda.zip
+          echo "作成した Release: $TAG"

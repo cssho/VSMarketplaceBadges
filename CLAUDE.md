@@ -185,6 +185,15 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
 即時に反映される。`deploy-lambda.yml` が直近 3 世代を残すので 1〜2 世代前まで戻せる。
 
 - 作業はフィーチャーブランチで行い、PR を作成する。`master` へ直接コミットしないこと。
+- **バージョンは `VERSION` ファイルの `major.minor` + 自動採番の `patch`。**
+  major / minor を上げたいときは `VERSION` を書き換える (例: `3.0` → `3.1`)。patch は同じ minor の
+  既存タグの最大値 + 1 を CI が計算するので、手で決めない。`VERSION` には patch を書かないこと
+  (4 要素のタグになるのでワークフローが弾く)。
+  バージョンは `-p:Version=` でアセンブリにも埋め込まれる。
+- **Release はデプロイが成功したときだけ作られる。** `master` マージ → デプロイ完走 → タグと
+  Release を作成し `lambda.zip` を添付する。途中で失敗すればタグも Release も残らない。
+  ドキュメントだけの変更では `paths-ignore` でワークフロー自体が走らないので、意味のない
+  バージョンは積み上がらない。
 - PR では `.github/workflows/test.yml` が動く (ビルド・テスト・publish のみ、デプロイしない)。
   これが無いと Dependabot の PR が未検証のままマージされてしまう。AWS の資格情報は使わないので
   OIDC の権限も与えていない。
