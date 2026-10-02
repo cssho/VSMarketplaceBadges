@@ -215,4 +215,8 @@ aws lambda update-alias --function-name vsmarketplace-badges --name live --funct
   デプロイ権限を持つロールを引き受けるため、影響が大きい。新しいアクションを足すときも
   `uses: owner/repo@<40桁SHA> # vX.Y.Z` の形にすること。
   固定したままだと古い版に塩漬けになるので、追随は `.github/dependabot.yml` に任せている。
+- **Dependabot は monthly + グループ化。** PR のマージは本番デプロイと Release の作成を伴うので、
+  頻度と PR 数がそのまま運用コストになる。アクションは 1 PR にまとめ、NuGet は Serilog 系と
+  テスト系に分けてある。脆弱性修正は interval に関係なく即座に PR が来るため、weekly に
+  しても安全性は変わらない (判断の経緯は `dependabot.yml` のコメント)。
 
