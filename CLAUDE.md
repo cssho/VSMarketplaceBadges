@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 123 件
+dotnet test                                       # ユニットテスト 126 件
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -96,7 +96,7 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 
 ## バッジタイプの追加
 
-新しいバッジタイプには 4 箇所の連動した編集が必要。1 つでも欠けるとバッジが静かに壊れる:
+新しいバッジタイプには 5 箇所の連動した編集が必要。1 つでも欠けるとバッジが静かに壊れる:
 
 1. `Entity/BadgeType.cs` — `[EnumMember(Value="kebab-case")]` を付けた enum メンバー。
    ルートバインドは `CustomEnumConverter` を経由し、`EnumMember` をキーにする。文字列が
@@ -105,9 +105,31 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
    subject は URL エンコード済みのリテラル (例: `Visual%20Studio%20Marketplace`)。
 3. `Utility/BadgeValuConverterExtentions.cs` — `ToBadgeValue` への case 追加。`default` は例外を投げる。
 4. `wwwroot/index.html` — 公開ドキュメントページへの行追加。
+5. `terraform/functions/path-filter.js` — `BADGE_TYPES` への追加 (後述のパスフィルタ)。
+   これは Terraform で反映するもので、`master` マージのデプロイでは更新されない。
+   **マージ前に `terraform apply` しておく**こと。忘れると新バッジは本番だけ 404 になる。
 
-`BadgeTypeBindingTests` が全 `BadgeType` を列挙し、手順 1〜3 が不完全なら失敗する。追加後は
-必ず `dotnet test` を実行すること。この作業には `/add-badge-type` スキルを使う。
+`BadgeTypeBindingTests` が全 `BadgeType` を列挙し、手順 1〜3 が不完全なら失敗する。手順 5 は
+`CloudFrontPathFilterTests` が検査する。追加後は必ず `dotnet test` を実行すること。
+この作業には `/add-badge-type` スキルを使う。
+
+## エッジのパスフィルタ (CloudFront Functions)
+
+`terraform/functions/path-filter.js` が viewer-request で動き、アプリが応答しうるパス以外を
+エッジで 404 にする。推測パスのスキャン (`/config.zip` など) は URL が毎回異なりキャッシュに
+当たらないため、素通しすると全件 Lambda に抜けて同時実行数の上限 1000 を使い切る
+(2026-10-07 に 2 秒間で 3,226 件届き、1,980 件がスロットルされた)。
+
+- 許可するのは `STATIC_PATHS` (wwwroot のファイル) と、1 段目が `BADGE_TYPES` に一致するパスだけ。
+- **拡張子では絞らない。** `ImageExt` に無い拡張子 (`.jpg` など) や拡張子なしのパスでも
+  アプリは既定の SVG を 200 で返しており、実際に README で使われている (1 日 1 万件超)。
+  これは `ImageExt` に `CustomEnumConverter` が付いておらず、標準の `EnumConverter` で変換に
+  失敗すると初期値 `Svg` のまま残るため (`[ApiController]` が無いので 400 にもならない)。
+  中身と Content-Type はどちらも SVG で一致しており表示は壊れていない。**意図的に現状維持**としており、
+  PNG に寄せたり 400 にしたりすると既存利用者のバッジが変わる・壊れる。shields.io 側も
+  JPG は返さない (`raster.shields.io` はどの拡張子でも PNG)。
+- wwwroot にファイルを足したら `STATIC_PATHS` にも足す。`CloudFrontPathFilterTests` が突き合わせる。
+- WAF のレート制限は月 $6 程度かかるので採用していない。
 
 ## コーディング規約
 

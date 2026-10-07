@@ -180,6 +180,25 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudfront_logs" {
   }
 }
 
+# ----------------------------------------------------------------------------
+# パスフィルタ (CloudFront Functions)
+#
+# バッジ・ドキュメント以外のパスをエッジで 404 にして、Lambda に届かせない。
+# 推測パスのスキャンは URL が毎回異なりキャッシュに当たらないため、素通しすると
+# 全件が Lambda に抜けて同時実行数の上限 (アカウント全体で 1000) を食い潰す。
+# 判定ロジックと許可リストの保守ルールは functions/path-filter.js の冒頭を参照。
+#
+# WAF のレート制限 (月 $6〜) ではなくこちらにしたのは費用のため。
+# CloudFront Functions は 100 万呼び出しあたり $0.10 で、キャッシュヒットも含む全リクエストで走る。
+# ----------------------------------------------------------------------------
+resource "aws_cloudfront_function" "path_filter" {
+  name    = "${var.function_name}-path-filter"
+  runtime = "cloudfront-js-2.0"
+  comment = "Return 404 at the edge for paths the app never serves"
+  publish = true
+  code    = file("${path.module}/functions/path-filter.js")
+}
+
 resource "aws_cloudfront_distribution" "badges" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -224,6 +243,11 @@ resource "aws_cloudfront_distribution" "badges" {
     compress                   = true
     cache_policy_id            = aws_cloudfront_cache_policy.badges.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.path_filter.arn
+    }
   }
 
   restrictions {

@@ -1,10 +1,10 @@
 ---
 name: add-badge-type
-description: Add a new badge type to VSMarketplaceBadges. Walks the four coordinated edits (BadgeType enum, BadgeRequest subject, ToBadgeValue case, doc page) that a new badge requires. Use when asked to add, rename, or remove a badge type.
+description: Add a new badge type to VSMarketplaceBadges. Walks the five coordinated edits (BadgeType enum, BadgeRequest subject, ToBadgeValue case, doc page, CloudFront path filter) that a new badge requires. Use when asked to add, rename, or remove a badge type.
 ---
 
-Adding a badge type touches four files. Skipping any one produces a badge that 400s or throws at
-request time instead of failing at build time — so make all four edits before reporting done.
+Adding a badge type touches five files. Skipping any one produces a badge that 400s or throws at
+request time instead of failing at build time — so make all five edits before reporting done.
 
 If the user did not say which badge type, ask for: the URL segment (kebab-case, e.g. `trending-yearly`),
 the shields.io subject label, and how the value is computed from `VSMarketplaceItem`.
@@ -36,6 +36,13 @@ it in the constructor's `statistic.StatisticName` switch (names are the API's, e
 Add a row to the public doc page listing the new URL segment and a live example, matching the format of
 the surrounding rows.
 
+## 5. `terraform/functions/path-filter.js`
+
+Add the URL segment to `BADGE_TYPES`. This CloudFront Function 404s any path whose first segment is
+not listed, so a missing entry means the new badge works locally but 404s in production. The function
+is deployed by `terraform apply`, not by the `master` deploy workflow — apply it **before** merging, or
+the badge 404s until someone does. Removing a badge type: drop it here too.
+
 ## Verify
 
 ```
@@ -43,6 +50,6 @@ dotnet test
 ```
 
 `BadgeTypeBindingTests` enumerates every `BadgeType` and fails if the `EnumMember`, the subject, or the
-`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. Add a formatting assertion to
+`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. `CloudFrontPathFilterTests` checks step 5. Add a formatting assertion to
 `BadgeValueConverterTests` for the new value, then run `/smoke-test` against the new segment before
 reporting the change complete.
