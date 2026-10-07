@@ -123,6 +123,11 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 - 許可するのは `STATIC_PATHS` (wwwroot のファイル) と、1 段目が `BADGE_TYPES` に一致するパスだけ。
 - **拡張子では絞らない。** `ImageExt` に無い拡張子 (`.jpg` など) や拡張子なしのパスでも
   アプリは既定の SVG を 200 で返しており、実際に README で使われている (1 日 1 万件超)。
+  これは `ImageExt` に `CustomEnumConverter` が付いておらず、標準の `EnumConverter` で変換に
+  失敗すると初期値 `Svg` のまま残るため (`[ApiController]` が無いので 400 にもならない)。
+  中身と Content-Type はどちらも SVG で一致しており表示は壊れていない。**意図的に現状維持**としており、
+  PNG に寄せたり 400 にしたりすると既存利用者のバッジが変わる・壊れる。shields.io 側も
+  JPG は返さない (`raster.shields.io` はどの拡張子でも PNG)。
 - wwwroot にファイルを足したら `STATIC_PATHS` にも足す。`CloudFrontPathFilterTests` が突き合わせる。
 - WAF のレート制限は月 $6 程度かかるので採用していない。
 
