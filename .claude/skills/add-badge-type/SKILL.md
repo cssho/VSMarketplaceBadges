@@ -33,8 +33,9 @@ it in the constructor's `statistic.StatisticName` switch (names are the API's, e
 
 ## 4. `wwwroot/index.html`
 
-Add a row to the public doc page listing the new URL segment and a live example, matching the format of
-the surrounding rows.
+Add a `.badge-row` to the public doc page, matching the format of the surrounding rows. The `<img>`'s
+`data-type` must be the URL segment (the `EnumMember` value) — the page builds each badge URL from it,
+so no script change is needed. Give the `<img>` an `alt` (Lighthouse flags images without one).
 
 ## 5. `terraform/functions/path-filter.js`
 

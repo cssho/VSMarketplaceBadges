@@ -71,8 +71,8 @@ resource "aws_cloudfront_cache_policy" "badges" {
 # セキュリティヘッダー
 #
 # 配信全体に効かせて問題のないものだけを置く。CSP はここに入れない。
-# ドキュメントページ (wwwroot/index.html) が jQuery・Bootstrap・Twitter ウィジェットと
-# インラインスクリプトを使っており、全体に厳格な CSP をかけると壊れるため。
+# ドキュメントページ (wwwroot/index.html) がインラインのスクリプト・スタイルと
+# Marketplace API への fetch を使っており、全体に厳格な CSP をかけると壊れるため。
 # バッジ応答向けの CSP は BadgeController が個別に付ける。
 # ----------------------------------------------------------------------------
 resource "aws_cloudfront_response_headers_policy" "security" {

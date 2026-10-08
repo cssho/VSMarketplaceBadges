@@ -1,8 +1,8 @@
-﻿<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:site" content="@csshooo" />
     <meta name="twitter:title" content="VSMarketplaceBadges" />
@@ -11,201 +11,317 @@
     <title>VSMarketplaceBadges</title>
     <meta name="description" content="Version, installs and rating badges for Visual Studio Marketplace." />
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
-          crossorigin="anonymous">
-    <style type="text/css">
+    <!-- 外部 CSS はレンダリングを止めるので、Bootstrap 3 の見た目に寄せた最小限をインラインで持つ -->
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.43;
+            color: #212529;
+            background: #fff;
+        }
+
+        a {
+            color: #0a4f8f;
+            text-decoration: underline;
+        }
+
+        h1, h2 {
+            font-weight: 500;
+            line-height: 1.1;
+            margin: 20px 0 10px;
+        }
+
+        h1 {
+            font-size: 36px;
+        }
+
+        h2 {
+            font-size: 24px;
+        }
+
+        .container {
+            max-width: 1170px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        .header {
+            padding-right: 120px;
+            margin-bottom: 20px;
+        }
+
         .jumbotron {
             padding: 30px;
-            display: table;
-            width: 100%;
+            margin-bottom: 30px;
+            background: #eee;
+            border-radius: 6px;
+        }
+
+        .search label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+            max-width: 560px;
+            margin-bottom: 20px;
+        }
+
+        .search-row input {
+            flex: 1;
+            min-width: 0;
+            height: 34px;
+            padding: 6px 12px;
+            font: inherit;
+            color: #212529;
+            background: #fff;
+            border: 1px solid #767676;
+            border-radius: 4px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 6px 12px;
+            font: inherit;
+            color: #212529;
+            background: #fff;
+            border: 1px solid #767676;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: #e6e6e6;
+        }
+
+        .badge-row {
+            margin-bottom: 10px;
+        }
+
+        .badge-row span {
+            font-size: 16px;
+        }
+
+        .badge-row img {
+            vertical-align: middle;
+        }
+
+        /* src を入れるまでは alt の文字が出ないよう隠しておく */
+        .badge-row img:not([src]) {
+            display: none;
         }
 
         .badge-url {
-            height: 38px;
+            min-height: 38px;
+            margin-top: 5px;
+            padding: 9px;
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            word-break: break-all;
         }
 
-        span {
-            font-size: 16px;
+        .footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .footer p {
+            margin: 0;
+        }
+
+        .fork-ribbon {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+        }
+
+        .fork-ribbon a {
+            position: absolute;
+            top: 38px;
+            right: -42px;
+            width: 200px;
+            padding: 6px 0;
+            transform: rotate(45deg);
+            background: #595959;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            .jumbotron {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <a href="https://github.com/cssho/VSMarketplaceBadges">
-        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67"
-             alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png">
-    </a>
-    <div class="container">
-        <div class="header clearfix">
+    <div class="fork-ribbon">
+        <a href="https://github.com/cssho/VSMarketplaceBadges">Fork me on GitHub</a>
+    </div>
+    <main class="container">
+        <div class="header">
             <h1>VSMarketplaceBadges</h1>
             <h2>Version, installs and rating badges for Visual Studio Marketplace.</h2>
         </div>
         <div class="jumbotron">
-            <div class="col-lg-12" style="margin-bottom:10px;">
-                <p>Item Name(e.g. ms-vscode.csharp):</p>
-                <div class="col-lg-5">
-                    <input type="text" id="item" list="items" class="form-control" />
+            <div class="search">
+                <label for="item">Item Name(e.g. ms-dotnettools.csharp):</label>
+                <div class="search-row">
+                    <input type="text" id="item" list="items" autocomplete="off" />
                     <datalist id="items"></datalist>
-                </div>
-                <div class="col-lg-2">
-                    <button class="btn btn-default" id="get_badge">Find</button>
+                    <button type="button" class="btn" id="get_badge">Find</button>
                 </div>
             </div>
-            <div class="col-lg-12">
-                <span>Version : </span><img id="badge_version" />
-                <div id="bv_url" class="well well-sm badge-url">&nbsp;</div>
+            <!-- data-type は URL の 1 段目 (BadgeType の EnumMember) -->
+            <div class="badge-row">
+                <span>Version : </span><img data-type="version" alt="Version badge" />
+                <div class="badge-url">&nbsp;</div>
             </div>
-            <div class="col-lg-12">
-                <span>Version(Short) : </span><img id="badge_version_short" />
-                <div id="bvs_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Version(Short) : </span><img data-type="version-short" alt="Version (short) badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Installs : </span><img id="badge_installs" />
-                <div id="bi_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Installs : </span><img data-type="installs" alt="Installs badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Installs(Short) : </span><img id="badge_installs_short" />
-                <div id="bis_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Installs(Short) : </span><img data-type="installs-short" alt="Installs (short) badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Downloads : </span><img id="badge_downloads" />
-                <div id="bd_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Downloads : </span><img data-type="downloads" alt="Downloads badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Downloads(Short) : </span><img id="badge_downloads_short" />
-                <div id="bds_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Downloads(Short) : </span><img data-type="downloads-short" alt="Downloads (short) badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Rating : </span><img id="badge_rating" />
-                <div id="br_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Rating : </span><img data-type="rating" alt="Rating badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Rating(Short) : </span><img id="badge_rating_short" />
-                <div id="brs_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Rating(Short) : </span><img data-type="rating-short" alt="Rating (short) badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>Rating(Star) : </span><img id="badge_rating_star" />
-                <div id="brst_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>Rating(Star) : </span><img data-type="rating-star" alt="Rating (star) badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>TrendingDaily : </span><img id="badge_trending_daily" />
-                <div id="btd_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>TrendingDaily : </span><img data-type="trending-daily" alt="Trending daily badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>TrendingWeekly : </span><img id="badge_trending_weekly" />
-                <div id="btw_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>TrendingWeekly : </span><img data-type="trending-weekly" alt="Trending weekly badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-12">
-                <span>TrendingMonthly : </span><img id="badge_trending_monthly" />
-                <div id="btm_url" class="well well-sm badge-url"></div>
+            <div class="badge-row">
+                <span>TrendingMonthly : </span><img data-type="trending-monthly" alt="Trending monthly badge" />
+                <div class="badge-url"></div>
             </div>
-            <div class="col-lg-10">
-                <p>Badges created by <a href="http://shields.io/">Shields.io</a></p>
-            </div>
-            <div class="col-lg-2">
-                <a href="https://twitter.com/share" class="twitter-share-button" data-via="csshooo" data-size="large" data-related="code" data-hashtags="VSMarketplaceBadges">Tweet</a>
-                <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+            <div class="footer">
+                <p>Badges created by <a href="https://shields.io/">Shields.io</a></p>
+                <!-- ウィジェットのスクリプト (約 150 KiB) を読まずに済むよう、Web Intent への素のリンクにしている -->
+                <a class="btn" href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fvsmarketplacebadges.dev%2F&amp;via=csshooo&amp;hashtags=VSMarketplaceBadges&amp;related=code" target="_blank" rel="noopener">Tweet</a>
             </div>
         </div>
-    </div>
-    <script src="//code.jquery.com/jquery-2.2.2.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
-            crossorigin="anonymous"></script>
-    <script type="text/javascript">
-        $(function () {
-            $("#item").keyup(function (e) {
-                if (e.which === 190) {
-                    var item = $('#item').val();
-                    var data = {
-                        assetTypes: [
-                            'Microsoft.VisualStudio.Services.Icons.Default'
-                        ],
-                        filters: [
-                            {
-                                criteria: [
-                                    {
-                                        filterType: 10,
-                                        value: `publisher:\"${escape(item.substr(0, item.length - 1))}\"`
-                                    }
-                                ],
-                                "pageSize": 100,
-                                "pageNumber": 1
-                            }
-                        ]
+    </main>
+    <script>
+        (function () {
+            var input = document.getElementById('item');
+            var items = document.getElementById('items');
+
+            // "publisher." まで入力されたら、その発行者の拡張機能を候補に出す
+            input.addEventListener('keyup', function (e) {
+                if (e.key !== '.') return;
+                var item = input.value;
+                var data = {
+                    assetTypes: [
+                        'Microsoft.VisualStudio.Services.Icons.Default'
+                    ],
+                    filters: [
+                        {
+                            criteria: [
+                                {
+                                    filterType: 10,
+                                    value: `publisher:\"${escape(item.substr(0, item.length - 1))}\"`
+                                }
+                            ],
+                            "pageSize": 100,
+                            "pageNumber": 1
+                        }
+                    ]
+                };
+                fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json;api-version=3.0-preview.1'
+                    },
+                    body: JSON.stringify(data)
+                }).then(function (res) {
+                    return res.json();
+                }).then(function (json) {
+                    if (json.results.length === 1 && json.results[0].extensions.length >= 1) {
+                        items.replaceChildren();
+                        json.results[0].extensions.forEach(function (ext) {
+                            var option = document.createElement('option');
+                            option.value = input.value + ext.extensionName;
+                            items.appendChild(option);
+                        });
                     }
-                    $.ajax({
-                        url: 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery',
-                        method: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify(data),
-                        dataType: "json",
-                        headers: {
-                            'Accept': 'application/json;api-version=3.0-preview.1'
-                        }
-                    }).done(function (json) {
-                        if (json.results.length === 1 && json.results[0].extensions.length >= 1) {
-                            $('#items').empty();
-                            $.each(json.results[0].extensions, function () {
-                                $('#items').append($('<option>').val($('#item').val() + this.extensionName));
-                            });
-                        }
-
-                    });
-                }
+                }).catch(function () {
+                    // 候補が出ないだけなので握りつぶす
+                });
             });
-            $('#get_badge').on('click', function (e) {
-                getBadge();
-            });
-            $('#item').keypress(function (e) {
-                if (e.which == 13) {
-                    $('#get_badge').trigger('click');
-                }
-            });
-        });
-        function getBadge() {
-            var item = $('#item').val();
-            var vurl = convertAbsUrl('/version/' + item + '.svg');
-            var iurl = convertAbsUrl('/installs/' + item + '.svg');
-            var rurl = convertAbsUrl('/rating/' + item + '.svg');
-            var vsurl = convertAbsUrl('/version-short/' + item + '.svg');
-            var isurl = convertAbsUrl('/installs-short/' + item + '.svg');
-            var rsurl = convertAbsUrl('/rating-short/' + item + '.svg');
-            var rsturl = convertAbsUrl('/rating-star/' + item + '.svg');
-            var tdurl = convertAbsUrl('/trending-daily/' + item + '.svg');
-            var twurl = convertAbsUrl('/trending-weekly/' + item + '.svg');
-            var tmurl = convertAbsUrl('/trending-monthly/' + item + '.svg');
 
-            var durl = convertAbsUrl('/downloads/' + item + '.svg');
-            var dsurl = convertAbsUrl('/downloads-short/' + item + '.svg');
-            $('#badge_version').attr("src", vurl);
-            $('#bv_url').text(vurl);
-            $('#badge_installs').attr("src", iurl);
-            $('#bi_url').text(iurl);
-            $('#badge_rating').attr("src", rurl);
-            $('#br_url').text(rurl);
-            $('#badge_version_short').attr("src", vsurl);
-            $('#bvs_url').text(vsurl);
-            $('#badge_rating_short').attr("src", rsurl);
-            $('#brs_url').text(rsurl);
-            $('#badge_rating_star').attr("src", rsturl);
-            $('#brst_url').text(rsturl);
-            $('#badge_installs_short').attr("src", isurl);
-            $('#bis_url').text(isurl);
-            $('#badge_trending_daily').attr("src", tdurl);
-            $('#btd_url').text(tdurl);
-            $('#badge_trending_weekly').attr("src", twurl);
-            $('#btw_url').text(twurl);
-            $('#badge_trending_monthly').attr("src", tmurl);
-            $('#btm_url').text(tmurl);
-            $('#badge_downloads').attr("src", durl);
-            $('#bd_url').text(durl);
-            $('#badge_downloads_short').attr("src", dsurl);
-            $('#bds_url').text(dsurl);
-        }
-        function convertAbsUrl(src) {
-            return $("<a>").attr("href", src).get(0).href;
-        }
+            document.getElementById('get_badge').addEventListener('click', getBadge);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') getBadge();
+            });
 
+            function getBadge() {
+                var item = input.value;
+                document.querySelectorAll('.badge-row img[data-type]').forEach(function (img) {
+                    var url = new URL('/' + img.dataset.type + '/' + item + '.svg', location.href).href;
+                    img.src = url;
+                    img.parentNode.querySelector('.badge-url').textContent = url;
+                });
+            }
+        })();
     </script>
 </body>
 
