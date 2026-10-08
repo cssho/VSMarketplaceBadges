@@ -269,15 +269,15 @@
                 if (e.key !== '.') return;
                 var item = input.value;
                 var data = {
-                    assetTypes: [
-                        'Microsoft.VisualStudio.Services.Icons.Default'
-                    ],
                     filters: [
                         {
                             criteria: [
                                 {
-                                    filterType: 10,
-                                    value: `publisher:\"${escape(item.substr(0, item.length - 1))}\"`
+                                    // 18 は発行者 ID の完全一致 (大文字小文字は区別しない)。
+                                    // 10 (検索文字列) の publisher:"..." は表示名に当たるため、
+                                    // ms-vscode (表示名 Microsoft) のように ID と表示名が違う発行者が出なかった
+                                    filterType: 18,
+                                    value: item.slice(0, -1)
                                 }
                             ],
                             "pageSize": 100,
@@ -295,11 +295,13 @@
                 }).then(function (res) {
                     return res.json();
                 }).then(function (json) {
-                    if (json.results.length === 1 && json.results[0].extensions.length >= 1) {
-                        items.replaceChildren();
+                    // 該当なしのときに前の発行者の候補が残らないよう、毎回空にする
+                    items.replaceChildren();
+                    if (json.results.length === 1) {
                         json.results[0].extensions.forEach(function (ext) {
+                            // 入力の大文字小文字ではなく、API が返す正式な ID で組み立てる
                             var option = document.createElement('option');
-                            option.value = input.value + ext.extensionName;
+                            option.value = ext.publisher.publisherName + '.' + ext.extensionName;
                             items.appendChild(option);
                         });
                     }
