@@ -33,9 +33,10 @@ it in the constructor's `statistic.StatisticName` switch (names are the API's, e
 
 ## 4. `wwwroot/index.html`
 
-Add a `.badge-row` to the public doc page, matching the format of the surrounding rows. The `<img>`'s
-`data-type` must be the URL segment (the `EnumMember` value) — the page builds each badge URL from it,
-so no script change is needed. Give the `<img>` an `alt` (Lighthouse flags images without one).
+Add an `<li class="badge-card" data-type="...">Title</li>` to `#results` on the public doc page,
+matching the surrounding cards. `data-type` must be the URL segment (the `EnumMember` value); the text
+is the card title. The page's script builds the preview, alt text and snippets from these two, so no
+script change is needed.
 
 ## 5. `terraform/functions/path-filter.js`
 

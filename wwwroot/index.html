@@ -3,327 +3,530 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:site" content="@csshooo" />
-    <meta name="twitter:title" content="VSMarketplaceBadges" />
-    <meta name="twitter:description" content="Version, installs and rating badges for Visual Studio Marketplace." />
-    <meta name="twitter:image" content="https://vsmarketplacebadges.dev/image/vsmb.png" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>VSMarketplaceBadges</title>
     <meta name="description" content="Version, installs and rating badges for Visual Studio Marketplace." />
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <!-- 外部 CSS はレンダリングを止めるので、Bootstrap 3 の見た目に寄せた最小限をインラインで持つ -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vsmarketplacebadges.dev/" />
+    <meta property="og:title" content="VSMarketplaceBadges" />
+    <meta property="og:description" content="Version, installs and rating badges for Visual Studio Marketplace." />
+    <meta property="og:image" content="https://vsmarketplacebadges.dev/image/vsmb.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@csshooo" />
+    <!-- 外部 CSS はレンダリングを止めるので、スタイルはすべてインラインで持つ -->
     <style>
+        :root {
+            --bg: #f6f8fa;
+            --surface: #fff;
+            --text: #1f2328;
+            --muted: #59636e;
+            --border: #d1d9e0;
+            --accent: #0969da;
+            --accent-text: #fff;
+            --code-bg: #f6f8fa;
+            --radius: 10px;
+            --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d1117;
+                --surface: #151b23;
+                --text: #f0f6fc;
+                --muted: #9198a1;
+                --border: #3d444d;
+                --accent: #4493f8;
+                --accent-text: #0d1117;
+                --code-bg: #0d1117;
+            }
+        }
+
         *, *::before, *::after {
             box-sizing: border-box;
         }
 
         body {
             margin: 0;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            font-size: 14px;
-            line-height: 1.43;
-            color: #212529;
-            background: #fff;
+            font-family: var(--font);
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--text);
+            background: var(--bg);
         }
 
         a {
-            color: #0a4f8f;
-            text-decoration: underline;
+            color: var(--accent);
         }
 
-        h1, h2 {
-            font-weight: 500;
-            line-height: 1.1;
-            margin: 20px 0 10px;
-        }
-
-        h1 {
-            font-size: 36px;
-        }
-
-        h2 {
-            font-size: 24px;
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
         }
 
         .container {
-            max-width: 1170px;
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 0 15px;
+            padding: 0 16px;
         }
 
-        .header {
-            padding-right: 120px;
-            margin-bottom: 20px;
+        /* ヘッダー */
+        .site-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 40px 0 24px;
         }
 
-        .jumbotron {
-            padding: 30px;
-            margin-bottom: 30px;
-            background: #eee;
-            border-radius: 6px;
+        .site-header h1 {
+            margin: 0;
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .site-header p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: clamp(16px, 2.5vw, 19px);
+        }
+
+        .icon-link {
+            display: inline-flex;
+            flex: none;
+            padding: 8px;
+            color: var(--text);
+            border-radius: 50%;
+        }
+
+        .icon-link:hover {
+            background: var(--surface);
+        }
+
+        .icon-link svg {
+            width: 28px;
+            height: 28px;
+            fill: currentColor;
+        }
+
+        /* 入力欄 */
+        .panel {
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
         }
 
         .search label {
             display: block;
-            font-size: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .search label span {
+            color: var(--muted);
+            font-weight: 400;
         }
 
         .search-row {
             display: flex;
-            gap: 10px;
-            max-width: 560px;
-            margin-bottom: 20px;
+            gap: 8px;
         }
 
         .search-row input {
             flex: 1;
             min-width: 0;
-            height: 34px;
-            padding: 6px 12px;
+            padding: 10px 12px;
             font: inherit;
-            color: #212529;
-            background: #fff;
-            border: 1px solid #767676;
-            border-radius: 4px;
+            font-family: var(--mono);
+            font-size: 15px;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
         }
 
         .btn {
-            display: inline-block;
-            padding: 6px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
             font: inherit;
-            color: #212529;
-            background: #fff;
-            border: 1px solid #767676;
-            border-radius: 4px;
+            font-weight: 600;
+            color: var(--accent-text);
+            background: var(--accent);
+            border: 1px solid transparent;
+            border-radius: 8px;
             cursor: pointer;
             text-decoration: none;
         }
 
         .btn:hover {
-            background: #e6e6e6;
+            filter: brightness(1.1);
         }
 
-        .badge-row {
-            margin-bottom: 10px;
+        .btn-quiet {
+            padding: 4px 10px;
+            font-size: 13px;
+            color: var(--text);
+            background: transparent;
+            border-color: var(--border);
         }
 
-        .badge-row span {
-            font-size: 16px;
+        .btn-quiet:hover {
+            background: var(--bg);
+            filter: none;
         }
 
-        .badge-row img {
-            vertical-align: middle;
+        /* スニペット形式の切り替え */
+        .formats {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin: 16px 0 0;
+            padding: 0;
+            border: 0;
         }
 
-        /* src を入れるまでは alt の文字が出ないよう隠しておく */
-        .badge-row img:not([src]) {
-            display: none;
+        .formats legend {
+            float: left;
+            margin-right: 4px;
+            color: var(--muted);
+            font-size: 14px;
         }
 
-        .badge-url {
-            min-height: 38px;
-            margin-top: 5px;
-            padding: 9px;
-            background: #f5f5f5;
-            border: 1px solid #ccc;
-            border-radius: 3px;
+        .segmented {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .segmented input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .segmented label {
+            padding: 4px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .segmented label + input + label {
+            border-left: 1px solid var(--border);
+        }
+
+        .segmented input:checked + label {
+            color: var(--accent-text);
+            background: var(--accent);
+        }
+
+        .segmented input:focus-visible + label {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+        }
+
+        /* 結果 */
+        .hint {
+            margin: 32px 0;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .badges {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+            gap: 16px;
+            margin: 24px 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .badge-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .badge-card header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .badge-card h2 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        /* shields.io のバッジは高さ 20px 固定。幅は内容で変わるので高さだけ決めてずれを防ぐ */
+        .badge-card img {
+            display: block;
+            width: auto;
+            height: 20px;
+        }
+
+        .badge-card pre {
+            margin: 0;
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            white-space: pre-wrap;
             word-break: break-all;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
         }
 
-        .footer {
+        /* フッター */
+        .site-footer {
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 12px;
+            padding: 24px 0 40px;
+            color: var(--muted);
+            font-size: 14px;
+            border-top: 1px solid var(--border);
         }
 
-        .footer p {
+        .site-footer p {
             margin: 0;
         }
 
-        .fork-ribbon {
+        .visually-hidden {
             position: absolute;
-            top: 0;
-            right: 0;
-            width: 150px;
-            height: 150px;
+            width: 1px;
+            height: 1px;
             overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
         }
 
-        .fork-ribbon a {
-            position: absolute;
-            top: 38px;
-            right: -42px;
-            width: 200px;
-            padding: 6px 0;
-            transform: rotate(45deg);
-            background: #595959;
-            color: #fff;
-            font-weight: bold;
-            font-size: 13px;
-            text-align: center;
-            text-decoration: none;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 28px;
-            }
-
-            h2 {
-                font-size: 20px;
-            }
-
-            .jumbotron {
-                padding: 15px;
+        @media (max-width: 480px) {
+            .panel {
+                padding: 16px;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="fork-ribbon">
-        <a href="https://github.com/cssho/VSMarketplaceBadges">Fork me on GitHub</a>
-    </div>
-    <main class="container">
-        <div class="header">
-            <h1>VSMarketplaceBadges</h1>
-            <h2>Version, installs and rating badges for Visual Studio Marketplace.</h2>
-        </div>
-        <div class="jumbotron">
-            <div class="search">
-                <label for="item">Item Name(e.g. ms-dotnettools.csharp):</label>
-                <div class="search-row">
-                    <input type="text" id="item" list="items" autocomplete="off" />
-                    <datalist id="items"></datalist>
-                    <button type="button" class="btn" id="get_badge">Find</button>
-                </div>
+    <div class="container">
+        <header class="site-header">
+            <div>
+                <h1>VSMarketplaceBadges</h1>
+                <p>Version, installs and rating badges for Visual Studio Marketplace.</p>
             </div>
-            <!-- data-type は URL の 1 段目 (BadgeType の EnumMember) -->
-            <div class="badge-row">
-                <span>Version : </span><img data-type="version" alt="Version badge" />
-                <div class="badge-url">&nbsp;</div>
-            </div>
-            <div class="badge-row">
-                <span>Version(Short) : </span><img data-type="version-short" alt="Version (short) badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Installs : </span><img data-type="installs" alt="Installs badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Installs(Short) : </span><img data-type="installs-short" alt="Installs (short) badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Downloads : </span><img data-type="downloads" alt="Downloads badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Downloads(Short) : </span><img data-type="downloads-short" alt="Downloads (short) badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Rating : </span><img data-type="rating" alt="Rating badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Rating(Short) : </span><img data-type="rating-short" alt="Rating (short) badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>Rating(Star) : </span><img data-type="rating-star" alt="Rating (star) badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>TrendingDaily : </span><img data-type="trending-daily" alt="Trending daily badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>TrendingWeekly : </span><img data-type="trending-weekly" alt="Trending weekly badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="badge-row">
-                <span>TrendingMonthly : </span><img data-type="trending-monthly" alt="Trending monthly badge" />
-                <div class="badge-url"></div>
-            </div>
-            <div class="footer">
-                <p>Badges created by <a href="https://shields.io/">Shields.io</a></p>
-                <!-- ウィジェットのスクリプト (約 150 KiB) を読まずに済むよう、Web Intent への素のリンクにしている -->
-                <a class="btn" href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fvsmarketplacebadges.dev%2F&amp;via=csshooo&amp;hashtags=VSMarketplaceBadges&amp;related=code" target="_blank" rel="noopener">Tweet</a>
-            </div>
-        </div>
-    </main>
-    <script>
-        (function () {
-            var input = document.getElementById('item');
-            var items = document.getElementById('items');
+            <a class="icon-link" href="https://github.com/cssho/VSMarketplaceBadges" aria-label="VSMarketplaceBadges on GitHub">
+                <!-- Octicons mark-github (MIT) -->
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+            </a>
+        </header>
 
-            // "publisher." まで入力されたら、その発行者の拡張機能を候補に出す
-            input.addEventListener('keyup', function (e) {
-                if (e.key !== '.') return;
-                var item = input.value;
-                var data = {
-                    filters: [
-                        {
-                            criteria: [
-                                {
-                                    // 18 は発行者 ID の完全一致 (大文字小文字は区別しない)。
-                                    // 10 (検索文字列) の publisher:"..." は表示名に当たるため、
-                                    // ms-vscode (表示名 Microsoft) のように ID と表示名が違う発行者が出なかった
-                                    filterType: 18,
-                                    value: item.slice(0, -1)
-                                }
-                            ],
-                            "pageSize": 100,
-                            "pageNumber": 1
-                        }
-                    ]
-                };
-                fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+        <main>
+            <form class="panel search" id="search">
+                <label for="item">Item name <span>(e.g. ms-dotnettools.csharp)</span></label>
+                <div class="search-row">
+                    <input type="text" id="item" name="item" list="items" autocomplete="off" spellcheck="false"
+                           placeholder="publisher.extension" required />
+                    <datalist id="items"></datalist>
+                    <button type="submit" class="btn">Find</button>
+                </div>
+                <fieldset class="formats">
+                    <legend>Snippet</legend>
+                    <div class="segmented">
+                        <input type="radio" name="format" id="format-markdown" value="markdown" checked />
+                        <label for="format-markdown">Markdown</label>
+                        <input type="radio" name="format" id="format-html" value="html" />
+                        <label for="format-html">HTML</label>
+                        <input type="radio" name="format" id="format-url" value="url" />
+                        <label for="format-url">URL</label>
+                    </div>
+                </fieldset>
+            </form>
+
+            <p class="hint" id="hint">Enter an extension's item name to preview its badges. Type <code>publisher.</code> to list that publisher's extensions.</p>
+
+            <!-- data-type は URL の 1 段目 (BadgeType の EnumMember)。カードの中身はスクリプトが埋める -->
+            <ul class="badges" id="results" hidden>
+                <li class="badge-card" data-type="version">Version</li>
+                <li class="badge-card" data-type="version-short">Version (short)</li>
+                <li class="badge-card" data-type="installs">Installs</li>
+                <li class="badge-card" data-type="installs-short">Installs (short)</li>
+                <li class="badge-card" data-type="downloads">Downloads</li>
+                <li class="badge-card" data-type="downloads-short">Downloads (short)</li>
+                <li class="badge-card" data-type="rating">Rating</li>
+                <li class="badge-card" data-type="rating-short">Rating (short)</li>
+                <li class="badge-card" data-type="rating-star">Rating (star)</li>
+                <li class="badge-card" data-type="trending-daily">Trending daily</li>
+                <li class="badge-card" data-type="trending-weekly">Trending weekly</li>
+                <li class="badge-card" data-type="trending-monthly">Trending monthly</li>
+            </ul>
+        </main>
+
+        <footer class="site-footer">
+            <p>Badges created by <a href="https://shields.io/">Shields.io</a></p>
+            <!-- ウィジェットのスクリプト (約 150 KiB) を読まずに済むよう、Web Intent への素のリンクにしている -->
+            <a href="https://x.com/intent/tweet?url=https%3A%2F%2Fvsmarketplacebadges.dev%2F&amp;via=csshooo&amp;hashtags=VSMarketplaceBadges&amp;related=code" target="_blank" rel="noopener">Share on X</a>
+        </footer>
+    </div>
+
+    <div class="visually-hidden" aria-live="polite" id="announcer"></div>
+
+    <script type="module">
+        const $ = (selector, root = document) => root.querySelector(selector);
+
+        const form = $('#search');
+        const input = $('#item');
+        const items = $('#items');
+        const results = $('#results');
+        const announcer = $('#announcer');
+        const cards = [...results.querySelectorAll('.badge-card')];
+
+        // スニペットの形式。alt はバッジの説明、img はバッジ URL、link は Marketplace のページ
+        const formats = {
+            markdown: (alt, img, link) => `[![${alt}](${img})](${link})`,
+            html: (alt, img, link) => `<a href="${link}"><img src="${img}" alt="${alt}"></a>`,
+            url: (alt, img) => img,
+        };
+
+        const storage = {
+            get(key) {
+                try { return localStorage.getItem(key); } catch { return null; }
+            },
+            set(key, value) {
+                try { localStorage.setItem(key, value); } catch { /* 保存できなくても動作は変わらない */ }
+            },
+        };
+
+        // カードの骨組みを作る。HTML 側には data-type と見出しだけを書いておく
+        for (const card of cards) {
+            const title = card.textContent.trim();
+            card.textContent = '';
+            card.innerHTML = `
+                <header><h2></h2><button type="button" class="btn btn-quiet">Copy</button></header>
+                <div class="preview"><img alt="" height="20" /></div>
+                <pre><code></code></pre>`;
+            $('h2', card).textContent = title;
+            card.dataset.title = title;
+            $('button', card).addEventListener('click', () => copy(card));
+        }
+
+        let currentItem = '';
+
+        function currentFormat() {
+            return form.elements.format.value;
+        }
+
+        function render() {
+            if (!currentItem) return;
+            const format = formats[currentFormat()];
+            const encoded = encodeURIComponent(currentItem);
+            const link = `https://marketplace.visualstudio.com/items?itemName=${encoded}`;
+            for (const card of cards) {
+                const alt = `Visual Studio Marketplace ${card.dataset.title}`;
+                const src = new URL(`/${card.dataset.type}/${encoded}.svg`, location.href).href;
+                const img = $('img', card);
+                if (img.getAttribute('src') !== src) img.src = src;
+                img.alt = alt;
+                $('code', card).textContent = format(alt, src, link);
+            }
+        }
+
+        function show(item) {
+            currentItem = item.trim();
+            if (!currentItem) return;
+            input.value = currentItem;
+            results.hidden = false;
+            $('#hint').hidden = true;
+            render();
+            // 結果を共有できるよう、URL に入力を残す
+            const url = new URL(location.href);
+            url.searchParams.set('item', currentItem);
+            history.replaceState(null, '', url);
+        }
+
+        async function copy(card) {
+            const button = $('button', card);
+            try {
+                await navigator.clipboard.writeText($('code', card).textContent);
+                button.textContent = 'Copied!';
+                announcer.textContent = `${card.dataset.title} snippet copied`;
+            } catch {
+                button.textContent = 'Failed';
+            }
+            setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+        }
+
+        // "publisher." まで入力されたら、その発行者の拡張機能を候補に出す
+        let pending;
+        async function suggest(publisher) {
+            pending?.abort();
+            pending = new AbortController();
+            try {
+                const res = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json;api-version=3.0-preview.1'
+                        'Accept': 'application/json;api-version=3.0-preview.1',
                     },
-                    body: JSON.stringify(data)
-                }).then(function (res) {
-                    return res.json();
-                }).then(function (json) {
-                    // 該当なしのときに前の発行者の候補が残らないよう、毎回空にする
-                    items.replaceChildren();
-                    if (json.results.length === 1) {
-                        json.results[0].extensions.forEach(function (ext) {
-                            // 入力の大文字小文字ではなく、API が返す正式な ID で組み立てる
-                            var option = document.createElement('option');
-                            option.value = ext.publisher.publisherName + '.' + ext.extensionName;
-                            items.appendChild(option);
-                        });
-                    }
-                }).catch(function () {
-                    // 候補が出ないだけなので握りつぶす
+                    body: JSON.stringify({
+                        filters: [{
+                            // 18 は発行者 ID の完全一致 (大文字小文字は区別しない)。
+                            // 10 (検索文字列) の publisher:"..." は表示名に当たるため、
+                            // ms-vscode (表示名 Microsoft) のように ID と表示名が違う発行者が出なかった
+                            criteria: [{ filterType: 18, value: publisher }],
+                            pageSize: 100,
+                            pageNumber: 1,
+                        }],
+                    }),
+                    signal: pending.signal,
                 });
-            });
-
-            document.getElementById('get_badge').addEventListener('click', getBadge);
-            input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') getBadge();
-            });
-
-            function getBadge() {
-                var item = input.value;
-                document.querySelectorAll('.badge-row img[data-type]').forEach(function (img) {
-                    var url = new URL('/' + img.dataset.type + '/' + item + '.svg', location.href).href;
-                    img.src = url;
-                    img.parentNode.querySelector('.badge-url').textContent = url;
-                });
+                const json = await res.json();
+                // 該当なしのときに前の発行者の候補が残らないよう、毎回入れ替える。
+                // 候補は入力の大文字小文字ではなく、API が返す正式な ID で組み立てる
+                items.replaceChildren(...(json.results[0]?.extensions ?? []).map((ext) =>
+                    new Option('', `${ext.publisher.publisherName}.${ext.extensionName}`)));
+            } catch {
+                // 候補が出ないだけなので握りつぶす (中断された古い要求もここに来る)
             }
-        })();
+        }
+
+        input.addEventListener('keyup', (e) => {
+            if (e.key === '.') suggest(input.value.slice(0, -1));
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            show(input.value);
+        });
+
+        form.addEventListener('change', (e) => {
+            if (e.target.name !== 'format') return;
+            storage.set('format', currentFormat());
+            render();
+        });
+
+        const savedFormat = storage.get('format');
+        if (savedFormat in formats) form.elements.format.value = savedFormat;
+
+        const initial = new URLSearchParams(location.search).get('item');
+        if (initial) show(initial);
     </script>
 </body>
 
