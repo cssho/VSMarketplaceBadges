@@ -121,13 +121,14 @@
             border-radius: var(--radius);
         }
 
-        .search label {
+        /* 子孫セレクタにすると形式切り替えの label にも余白が付き、塗りが下まで届かなくなる */
+        .search > label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
         }
 
-        .search label span {
+        .search > label span {
             color: var(--muted);
             font-weight: 400;
         }
