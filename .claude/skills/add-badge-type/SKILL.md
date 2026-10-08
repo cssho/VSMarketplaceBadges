@@ -52,6 +52,6 @@ dotnet test
 ```
 
 `BadgeTypeBindingTests` enumerates every `BadgeType` and fails if the `EnumMember`, the subject, or the
-`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. `CloudFrontPathFilterTests` checks step 5. Add a formatting assertion to
+`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. `DocPageTests` checks step 4 and `CloudFrontPathFilterTests` checks step 5. Add a formatting assertion to
 `BadgeValueConverterTests` for the new value, then run `/smoke-test` against the new segment before
 reporting the change complete.

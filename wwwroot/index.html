@@ -49,6 +49,11 @@
             box-sizing: border-box;
         }
 
+        /* UA の [hidden] は作者の display 指定 (.badges の grid など) に負けるので明示する */
+        [hidden] {
+            display: none !important;
+        }
+
         body {
             margin: 0;
             font-family: var(--font);
@@ -202,6 +207,7 @@
         }
 
         .segmented {
+            position: relative; /* 隠した radio をこの中に留める */
             display: inline-flex;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -449,9 +455,11 @@
             }
         }
 
+        // 表示できたら true。空白だけの入力は受け付けず、前の結果もそのまま残す
         function show(item) {
-            currentItem = item.trim();
-            if (!currentItem) return;
+            const trimmed = item.trim();
+            if (!trimmed) return false;
+            currentItem = trimmed;
             input.value = currentItem;
             results.hidden = false;
             $('#hint').hidden = true;
@@ -460,18 +468,23 @@
             const url = new URL(location.href);
             url.searchParams.set('item', currentItem);
             history.replaceState(null, '', url);
+            return true;
         }
 
+        // 連打したときに前のタイマーで表示が早く戻らないよう、カードごとに 1 本だけ持つ
+        const copyResetTimers = new WeakMap();
         async function copy(card) {
             const button = $('button', card);
+            clearTimeout(copyResetTimers.get(card));
             try {
                 await navigator.clipboard.writeText($('code', card).textContent);
                 button.textContent = 'Copied!';
                 announcer.textContent = `${card.dataset.title} snippet copied`;
             } catch {
                 button.textContent = 'Failed';
+                announcer.textContent = `Could not copy the ${card.dataset.title} snippet`;
             }
-            setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+            copyResetTimers.set(card, setTimeout(() => { button.textContent = 'Copy'; }, 1500));
         }
 
         // "publisher." まで入力されたら、その発行者の拡張機能を候補に出す
@@ -479,6 +492,8 @@
         async function suggest(publisher) {
             pending?.abort();
             pending = new AbortController();
+            // 失敗したときに前の発行者の候補が残らないよう、問い合わせる前に空にしておく
+            items.replaceChildren();
             try {
                 const res = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
                     method: 'POST',
@@ -498,23 +513,31 @@
                     }),
                     signal: pending.signal,
                 });
+                if (!res.ok) return;
                 const json = await res.json();
-                // 該当なしのときに前の発行者の候補が残らないよう、毎回入れ替える。
                 // 候補は入力の大文字小文字ではなく、API が返す正式な ID で組み立てる
-                items.replaceChildren(...(json.results[0]?.extensions ?? []).map((ext) =>
+                items.replaceChildren(...(json.results?.[0]?.extensions ?? []).map((ext) =>
                     new Option('', `${ext.publisher.publisherName}.${ext.extensionName}`)));
             } catch {
                 // 候補が出ないだけなので握りつぶす (中断された古い要求もここに来る)
             }
         }
 
+        // 発行者 ID は "." を含まないので、"publisher." を打ち終えた瞬間だけ問い合わせる。
+        // キャレットより前を見るので、途中に "." を打ったときや 2 つ目の "." では引かない
         input.addEventListener('keyup', (e) => {
-            if (e.key === '.') suggest(input.value.slice(0, -1));
+            if (e.key !== '.') return;
+            const match = /^([^.\s]+)\.$/.exec(input.value.slice(0, input.selectionStart).trimStart());
+            if (match && input.selectionStart === input.value.length) suggest(match[1]);
         });
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
-            show(input.value);
+            if (!show(input.value)) {
+                // 空白だけのときは空欄に戻し、required の検証メッセージを出す
+                input.value = '';
+                input.reportValidity();
+            }
         });
 
         form.addEventListener('change', (e) => {
@@ -524,7 +547,8 @@
         });
 
         const savedFormat = storage.get('format');
-        if (savedFormat in formats) form.elements.format.value = savedFormat;
+        // in だと toString などの継承プロパティも通ってしまう
+        if (savedFormat && Object.hasOwn(formats, savedFormat)) form.elements.format.value = savedFormat;
 
         const initial = new URLSearchParams(location.search).get('item');
         if (initial) show(initial);
