@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 126 件
+dotnet test                                       # ユニットテスト 127 件
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -104,13 +104,14 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 2. `Entity/BadgeRequest.cs` — subject 定数と、`BadgeType` セッターの switch への case 追加。
    subject は URL エンコード済みのリテラル (例: `Visual%20Studio%20Marketplace`)。
 3. `Utility/BadgeValuConverterExtentions.cs` — `ToBadgeValue` への case 追加。`default` は例外を投げる。
-4. `wwwroot/index.html` — 公開ドキュメントページへの行追加。
+4. `wwwroot/index.html` — 公開ドキュメントページの `#results` に
+   `<li class="badge-card" data-type="kebab-case">見出し</li>` を追加。中身はスクリプトが組み立てる。
 5. `terraform/functions/path-filter.js` — `BADGE_TYPES` への追加 (後述のパスフィルタ)。
    これは Terraform で反映するもので、`master` マージのデプロイでは更新されない。
    **マージ前に `terraform apply` しておく**こと。忘れると新バッジは本番だけ 404 になる。
 
-`BadgeTypeBindingTests` が全 `BadgeType` を列挙し、手順 1〜3 が不完全なら失敗する。手順 5 は
-`CloudFrontPathFilterTests` が検査する。追加後は必ず `dotnet test` を実行すること。
+`BadgeTypeBindingTests` が全 `BadgeType` を列挙し、手順 1〜3 が不完全なら失敗する。手順 4 は
+`DocPageTests`、手順 5 は `CloudFrontPathFilterTests` が検査する。追加後は必ず `dotnet test` を実行すること。
 この作業には `/add-badge-type` スキルを使う。
 
 ## エッジのパスフィルタ (CloudFront Functions)

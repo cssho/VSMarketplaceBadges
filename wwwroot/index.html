@@ -1,211 +1,557 @@
-﻿<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:site" content="@csshooo" />
-    <meta name="twitter:title" content="VSMarketplaceBadges" />
-    <meta name="twitter:description" content="Version, installs and rating badges for Visual Studio Marketplace." />
-    <meta name="twitter:image" content="https://vsmarketplacebadges.dev/image/vsmb.png" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>VSMarketplaceBadges</title>
     <meta name="description" content="Version, installs and rating badges for Visual Studio Marketplace." />
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
-          crossorigin="anonymous">
-    <style type="text/css">
-        .jumbotron {
-            padding: 30px;
-            display: table;
-            width: 100%;
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vsmarketplacebadges.dev/" />
+    <meta property="og:title" content="VSMarketplaceBadges" />
+    <meta property="og:description" content="Version, installs and rating badges for Visual Studio Marketplace." />
+    <meta property="og:image" content="https://vsmarketplacebadges.dev/image/vsmb.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@csshooo" />
+    <!-- 外部 CSS はレンダリングを止めるので、スタイルはすべてインラインで持つ -->
+    <style>
+        :root {
+            --bg: #f6f8fa;
+            --surface: #fff;
+            --text: #1f2328;
+            --muted: #59636e;
+            --border: #d1d9e0;
+            --accent: #0969da;
+            --accent-text: #fff;
+            --code-bg: #f6f8fa;
+            --radius: 10px;
+            --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
         }
 
-        .badge-url {
-            height: 38px;
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d1117;
+                --surface: #151b23;
+                --text: #f0f6fc;
+                --muted: #9198a1;
+                --border: #3d444d;
+                --accent: #4493f8;
+                --accent-text: #0d1117;
+                --code-bg: #0d1117;
+            }
         }
 
-        span {
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* UA の [hidden] は作者の display 指定 (.badges の grid など) に負けるので明示する */
+        [hidden] {
+            display: none !important;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
             font-size: 16px;
+            line-height: 1.5;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        /* ヘッダー */
+        .site-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 40px 0 24px;
+        }
+
+        .site-header h1 {
+            margin: 0;
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .site-header p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: clamp(16px, 2.5vw, 19px);
+        }
+
+        .icon-link {
+            display: inline-flex;
+            flex: none;
+            padding: 8px;
+            color: var(--text);
+            border-radius: 50%;
+        }
+
+        .icon-link:hover {
+            background: var(--surface);
+        }
+
+        .icon-link svg {
+            width: 28px;
+            height: 28px;
+            fill: currentColor;
+        }
+
+        /* 入力欄 */
+        .panel {
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        /* 子孫セレクタにすると形式切り替えの label にも余白が付き、塗りが下まで届かなくなる */
+        .search > label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .search > label span {
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-row input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 12px;
+            font: inherit;
+            font-family: var(--mono);
+            font-size: 15px;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            font: inherit;
+            font-weight: 600;
+            color: var(--accent-text);
+            background: var(--accent);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-quiet {
+            padding: 4px 10px;
+            font-size: 13px;
+            color: var(--text);
+            background: transparent;
+            border-color: var(--border);
+        }
+
+        .btn-quiet:hover {
+            background: var(--bg);
+            filter: none;
+        }
+
+        /* スニペット形式の切り替え */
+        .formats {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin: 16px 0 0;
+            padding: 0;
+            border: 0;
+        }
+
+        .formats legend {
+            float: left;
+            margin-right: 4px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .segmented {
+            position: relative; /* 隠した radio をこの中に留める */
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .segmented input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .segmented label {
+            padding: 4px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .segmented label + input + label {
+            border-left: 1px solid var(--border);
+        }
+
+        .segmented input:checked + label {
+            color: var(--accent-text);
+            background: var(--accent);
+        }
+
+        .segmented input:focus-visible + label {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+        }
+
+        /* 結果 */
+        .hint {
+            margin: 32px 0;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .badges {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+            gap: 16px;
+            margin: 24px 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .badge-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .badge-card header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .badge-card h2 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        /* shields.io のバッジは高さ 20px 固定。幅は内容で変わるので高さだけ決めてずれを防ぐ */
+        .badge-card img {
+            display: block;
+            width: auto;
+            height: 20px;
+        }
+
+        .badge-card pre {
+            margin: 0;
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        /* フッター */
+        .site-footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 24px 0 40px;
+            color: var(--muted);
+            font-size: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .site-footer p {
+            margin: 0;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+        }
+
+        @media (max-width: 480px) {
+            .panel {
+                padding: 16px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <a href="https://github.com/cssho/VSMarketplaceBadges">
-        <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67"
-             alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png">
-    </a>
     <div class="container">
-        <div class="header clearfix">
-            <h1>VSMarketplaceBadges</h1>
-            <h2>Version, installs and rating badges for Visual Studio Marketplace.</h2>
-        </div>
-        <div class="jumbotron">
-            <div class="col-lg-12" style="margin-bottom:10px;">
-                <p>Item Name(e.g. ms-vscode.csharp):</p>
-                <div class="col-lg-5">
-                    <input type="text" id="item" list="items" class="form-control" />
+        <header class="site-header">
+            <div>
+                <h1>VSMarketplaceBadges</h1>
+                <p>Version, installs and rating badges for Visual Studio Marketplace.</p>
+            </div>
+            <a class="icon-link" href="https://github.com/cssho/VSMarketplaceBadges" aria-label="VSMarketplaceBadges on GitHub">
+                <!-- Octicons mark-github (MIT) -->
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+            </a>
+        </header>
+
+        <main>
+            <form class="panel search" id="search">
+                <label for="item">Item name <span>(e.g. ms-dotnettools.csharp)</span></label>
+                <div class="search-row">
+                    <input type="text" id="item" name="item" list="items" autocomplete="off" spellcheck="false"
+                           placeholder="publisher.extension" required />
                     <datalist id="items"></datalist>
+                    <button type="submit" class="btn">Find</button>
                 </div>
-                <div class="col-lg-2">
-                    <button class="btn btn-default" id="get_badge">Find</button>
-                </div>
-            </div>
-            <div class="col-lg-12">
-                <span>Version : </span><img id="badge_version" />
-                <div id="bv_url" class="well well-sm badge-url">&nbsp;</div>
-            </div>
-            <div class="col-lg-12">
-                <span>Version(Short) : </span><img id="badge_version_short" />
-                <div id="bvs_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Installs : </span><img id="badge_installs" />
-                <div id="bi_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Installs(Short) : </span><img id="badge_installs_short" />
-                <div id="bis_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Downloads : </span><img id="badge_downloads" />
-                <div id="bd_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Downloads(Short) : </span><img id="badge_downloads_short" />
-                <div id="bds_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Rating : </span><img id="badge_rating" />
-                <div id="br_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Rating(Short) : </span><img id="badge_rating_short" />
-                <div id="brs_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>Rating(Star) : </span><img id="badge_rating_star" />
-                <div id="brst_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>TrendingDaily : </span><img id="badge_trending_daily" />
-                <div id="btd_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>TrendingWeekly : </span><img id="badge_trending_weekly" />
-                <div id="btw_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-12">
-                <span>TrendingMonthly : </span><img id="badge_trending_monthly" />
-                <div id="btm_url" class="well well-sm badge-url"></div>
-            </div>
-            <div class="col-lg-10">
-                <p>Badges created by <a href="http://shields.io/">Shields.io</a></p>
-            </div>
-            <div class="col-lg-2">
-                <a href="https://twitter.com/share" class="twitter-share-button" data-via="csshooo" data-size="large" data-related="code" data-hashtags="VSMarketplaceBadges">Tweet</a>
-                <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-            </div>
-        </div>
+                <fieldset class="formats">
+                    <legend>Snippet</legend>
+                    <div class="segmented">
+                        <input type="radio" name="format" id="format-markdown" value="markdown" checked />
+                        <label for="format-markdown">Markdown</label>
+                        <input type="radio" name="format" id="format-html" value="html" />
+                        <label for="format-html">HTML</label>
+                        <input type="radio" name="format" id="format-url" value="url" />
+                        <label for="format-url">URL</label>
+                    </div>
+                </fieldset>
+            </form>
+
+            <p class="hint" id="hint">Enter an extension's item name to preview its badges. Type <code>publisher.</code> to list that publisher's extensions.</p>
+
+            <!-- data-type は URL の 1 段目 (BadgeType の EnumMember)。カードの中身はスクリプトが埋める -->
+            <ul class="badges" id="results" hidden>
+                <li class="badge-card" data-type="version">Version</li>
+                <li class="badge-card" data-type="version-short">Version (short)</li>
+                <li class="badge-card" data-type="installs">Installs</li>
+                <li class="badge-card" data-type="installs-short">Installs (short)</li>
+                <li class="badge-card" data-type="downloads">Downloads</li>
+                <li class="badge-card" data-type="downloads-short">Downloads (short)</li>
+                <li class="badge-card" data-type="rating">Rating</li>
+                <li class="badge-card" data-type="rating-short">Rating (short)</li>
+                <li class="badge-card" data-type="rating-star">Rating (star)</li>
+                <li class="badge-card" data-type="trending-daily">Trending daily</li>
+                <li class="badge-card" data-type="trending-weekly">Trending weekly</li>
+                <li class="badge-card" data-type="trending-monthly">Trending monthly</li>
+            </ul>
+        </main>
+
+        <footer class="site-footer">
+            <p>Badges created by <a href="https://shields.io/">Shields.io</a></p>
+            <!-- ウィジェットのスクリプト (約 150 KiB) を読まずに済むよう、Web Intent への素のリンクにしている -->
+            <a href="https://x.com/intent/tweet?url=https%3A%2F%2Fvsmarketplacebadges.dev%2F&amp;via=csshooo&amp;hashtags=VSMarketplaceBadges&amp;related=code" target="_blank" rel="noopener">Share on X</a>
+        </footer>
     </div>
-    <script src="//code.jquery.com/jquery-2.2.2.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
-            crossorigin="anonymous"></script>
-    <script type="text/javascript">
-        $(function () {
-            $("#item").keyup(function (e) {
-                if (e.which === 190) {
-                    var item = $('#item').val();
-                    var data = {
-                        assetTypes: [
-                            'Microsoft.VisualStudio.Services.Icons.Default'
-                        ],
-                        filters: [
-                            {
-                                criteria: [
-                                    {
-                                        filterType: 10,
-                                        value: `publisher:\"${escape(item.substr(0, item.length - 1))}\"`
-                                    }
-                                ],
-                                "pageSize": 100,
-                                "pageNumber": 1
-                            }
-                        ]
-                    }
-                    $.ajax({
-                        url: 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery',
-                        method: 'POST',
-                        contentType: 'application/json',
-                        data: JSON.stringify(data),
-                        dataType: "json",
-                        headers: {
-                            'Accept': 'application/json;api-version=3.0-preview.1'
-                        }
-                    }).done(function (json) {
-                        if (json.results.length === 1 && json.results[0].extensions.length >= 1) {
-                            $('#items').empty();
-                            $.each(json.results[0].extensions, function () {
-                                $('#items').append($('<option>').val($('#item').val() + this.extensionName));
-                            });
-                        }
 
-                    });
-                }
-            });
-            $('#get_badge').on('click', function (e) {
-                getBadge();
-            });
-            $('#item').keypress(function (e) {
-                if (e.which == 13) {
-                    $('#get_badge').trigger('click');
-                }
-            });
+    <div class="visually-hidden" aria-live="polite" id="announcer"></div>
+
+    <script type="module">
+        const $ = (selector, root = document) => root.querySelector(selector);
+
+        const form = $('#search');
+        const input = $('#item');
+        const items = $('#items');
+        const results = $('#results');
+        const announcer = $('#announcer');
+        const cards = [...results.querySelectorAll('.badge-card')];
+
+        // スニペットの形式。alt はバッジの説明、img はバッジ URL、link は Marketplace のページ
+        const formats = {
+            markdown: (alt, img, link) => `[![${alt}](${img})](${link})`,
+            html: (alt, img, link) => `<a href="${link}"><img src="${img}" alt="${alt}"></a>`,
+            url: (alt, img) => img,
+        };
+
+        const storage = {
+            get(key) {
+                try { return localStorage.getItem(key); } catch { return null; }
+            },
+            set(key, value) {
+                try { localStorage.setItem(key, value); } catch { /* 保存できなくても動作は変わらない */ }
+            },
+        };
+
+        // カードの骨組みを作る。HTML 側には data-type と見出しだけを書いておく
+        for (const card of cards) {
+            const title = card.textContent.trim();
+            card.textContent = '';
+            card.innerHTML = `
+                <header><h2></h2><button type="button" class="btn btn-quiet">Copy</button></header>
+                <div class="preview"><img alt="" height="20" /></div>
+                <pre><code></code></pre>`;
+            $('h2', card).textContent = title;
+            card.dataset.title = title;
+            $('button', card).addEventListener('click', () => copy(card));
+        }
+
+        let currentItem = '';
+
+        function currentFormat() {
+            return form.elements.format.value;
+        }
+
+        function render() {
+            if (!currentItem) return;
+            const format = formats[currentFormat()];
+            const encoded = encodeURIComponent(currentItem);
+            const link = `https://marketplace.visualstudio.com/items?itemName=${encoded}`;
+            for (const card of cards) {
+                const alt = `Visual Studio Marketplace ${card.dataset.title}`;
+                const src = new URL(`/${card.dataset.type}/${encoded}.svg`, location.href).href;
+                const img = $('img', card);
+                if (img.getAttribute('src') !== src) img.src = src;
+                img.alt = alt;
+                $('code', card).textContent = format(alt, src, link);
+            }
+        }
+
+        // 表示できたら true。空白だけの入力は受け付けず、前の結果もそのまま残す
+        function show(item) {
+            const trimmed = item.trim();
+            if (!trimmed) return false;
+            currentItem = trimmed;
+            input.value = currentItem;
+            results.hidden = false;
+            $('#hint').hidden = true;
+            render();
+            // 結果を共有できるよう、URL に入力を残す
+            const url = new URL(location.href);
+            url.searchParams.set('item', currentItem);
+            history.replaceState(null, '', url);
+            return true;
+        }
+
+        // 連打したときに前のタイマーで表示が早く戻らないよう、カードごとに 1 本だけ持つ
+        const copyResetTimers = new WeakMap();
+        async function copy(card) {
+            const button = $('button', card);
+            clearTimeout(copyResetTimers.get(card));
+            try {
+                await navigator.clipboard.writeText($('code', card).textContent);
+                button.textContent = 'Copied!';
+                announcer.textContent = `${card.dataset.title} snippet copied`;
+            } catch {
+                button.textContent = 'Failed';
+                announcer.textContent = `Could not copy the ${card.dataset.title} snippet`;
+            }
+            copyResetTimers.set(card, setTimeout(() => { button.textContent = 'Copy'; }, 1500));
+        }
+
+        // "publisher." まで入力されたら、その発行者の拡張機能を候補に出す
+        let pending;
+        async function suggest(publisher) {
+            pending?.abort();
+            pending = new AbortController();
+            // 失敗したときに前の発行者の候補が残らないよう、問い合わせる前に空にしておく
+            items.replaceChildren();
+            try {
+                const res = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json;api-version=3.0-preview.1',
+                    },
+                    body: JSON.stringify({
+                        filters: [{
+                            // 18 は発行者 ID の完全一致 (大文字小文字は区別しない)。
+                            // 10 (検索文字列) の publisher:"..." は表示名に当たるため、
+                            // ms-vscode (表示名 Microsoft) のように ID と表示名が違う発行者が出なかった
+                            criteria: [{ filterType: 18, value: publisher }],
+                            pageSize: 100,
+                            pageNumber: 1,
+                        }],
+                    }),
+                    signal: pending.signal,
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                // 候補は入力の大文字小文字ではなく、API が返す正式な ID で組み立てる
+                items.replaceChildren(...(json.results?.[0]?.extensions ?? []).map((ext) =>
+                    new Option('', `${ext.publisher.publisherName}.${ext.extensionName}`)));
+            } catch {
+                // 候補が出ないだけなので握りつぶす (中断された古い要求もここに来る)
+            }
+        }
+
+        // 発行者 ID は "." を含まないので、"publisher." を打ち終えた瞬間だけ問い合わせる。
+        // キャレットより前を見るので、途中に "." を打ったときや 2 つ目の "." では引かない
+        input.addEventListener('keyup', (e) => {
+            if (e.key !== '.') return;
+            const match = /^([^.\s]+)\.$/.exec(input.value.slice(0, input.selectionStart).trimStart());
+            if (match && input.selectionStart === input.value.length) suggest(match[1]);
         });
-        function getBadge() {
-            var item = $('#item').val();
-            var vurl = convertAbsUrl('/version/' + item + '.svg');
-            var iurl = convertAbsUrl('/installs/' + item + '.svg');
-            var rurl = convertAbsUrl('/rating/' + item + '.svg');
-            var vsurl = convertAbsUrl('/version-short/' + item + '.svg');
-            var isurl = convertAbsUrl('/installs-short/' + item + '.svg');
-            var rsurl = convertAbsUrl('/rating-short/' + item + '.svg');
-            var rsturl = convertAbsUrl('/rating-star/' + item + '.svg');
-            var tdurl = convertAbsUrl('/trending-daily/' + item + '.svg');
-            var twurl = convertAbsUrl('/trending-weekly/' + item + '.svg');
-            var tmurl = convertAbsUrl('/trending-monthly/' + item + '.svg');
 
-            var durl = convertAbsUrl('/downloads/' + item + '.svg');
-            var dsurl = convertAbsUrl('/downloads-short/' + item + '.svg');
-            $('#badge_version').attr("src", vurl);
-            $('#bv_url').text(vurl);
-            $('#badge_installs').attr("src", iurl);
-            $('#bi_url').text(iurl);
-            $('#badge_rating').attr("src", rurl);
-            $('#br_url').text(rurl);
-            $('#badge_version_short').attr("src", vsurl);
-            $('#bvs_url').text(vsurl);
-            $('#badge_rating_short').attr("src", rsurl);
-            $('#brs_url').text(rsurl);
-            $('#badge_rating_star').attr("src", rsturl);
-            $('#brst_url').text(rsturl);
-            $('#badge_installs_short').attr("src", isurl);
-            $('#bis_url').text(isurl);
-            $('#badge_trending_daily').attr("src", tdurl);
-            $('#btd_url').text(tdurl);
-            $('#badge_trending_weekly').attr("src", twurl);
-            $('#btw_url').text(twurl);
-            $('#badge_trending_monthly').attr("src", tmurl);
-            $('#btm_url').text(tmurl);
-            $('#badge_downloads').attr("src", durl);
-            $('#bd_url').text(durl);
-            $('#badge_downloads_short').attr("src", dsurl);
-            $('#bds_url').text(dsurl);
-        }
-        function convertAbsUrl(src) {
-            return $("<a>").attr("href", src).get(0).href;
-        }
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!show(input.value)) {
+                // 空白だけのときは空欄に戻し、required の検証メッセージを出す
+                input.value = '';
+                input.reportValidity();
+            }
+        });
 
+        form.addEventListener('change', (e) => {
+            if (e.target.name !== 'format') return;
+            storage.set('format', currentFormat());
+            render();
+        });
+
+        const savedFormat = storage.get('format');
+        // in だと toString などの継承プロパティも通ってしまう
+        if (savedFormat && Object.hasOwn(formats, savedFormat)) form.elements.format.value = savedFormat;
+
+        const initial = new URLSearchParams(location.search).get('item');
+        if (initial) show(initial);
     </script>
 </body>
 

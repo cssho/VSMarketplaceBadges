@@ -33,8 +33,10 @@ it in the constructor's `statistic.StatisticName` switch (names are the API's, e
 
 ## 4. `wwwroot/index.html`
 
-Add a row to the public doc page listing the new URL segment and a live example, matching the format of
-the surrounding rows.
+Add an `<li class="badge-card" data-type="...">Title</li>` to `#results` on the public doc page,
+matching the surrounding cards. `data-type` must be the URL segment (the `EnumMember` value); the text
+is the card title. The page's script builds the preview, alt text and snippets from these two, so no
+script change is needed.
 
 ## 5. `terraform/functions/path-filter.js`
 
@@ -50,6 +52,6 @@ dotnet test
 ```
 
 `BadgeTypeBindingTests` enumerates every `BadgeType` and fails if the `EnumMember`, the subject, or the
-`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. `CloudFrontPathFilterTests` checks step 5. Add a formatting assertion to
+`ToBadgeValue` case is missing — so steps 1–3 are checked automatically. `DocPageTests` checks step 4 and `CloudFrontPathFilterTests` checks step 5. Add a formatting assertion to
 `BadgeValueConverterTests` for the new value, then run `/smoke-test` against the new segment before
 reporting the change complete.

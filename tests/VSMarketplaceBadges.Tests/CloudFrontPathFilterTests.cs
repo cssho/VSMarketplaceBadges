@@ -15,15 +15,7 @@ namespace VSMarketplaceBadges.Tests
     /// </summary>
     public class CloudFrontPathFilterTests
     {
-        private static readonly string RepoRoot = FindRepoRoot();
-
-        private static string FindRepoRoot()
-        {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "VSMarketplaceBadges.sln")))
-                dir = dir.Parent;
-            return dir?.FullName ?? throw new InvalidOperationException("VSMarketplaceBadges.sln が見つからない。");
-        }
+        private static readonly string RepoRoot = RepoPaths.Root;
 
         /// <summary>path-filter.js の `var NAME = [ '...', ... ];` から文字列リテラルを取り出す。</summary>
         private static string[] ReadJsArray(string name)

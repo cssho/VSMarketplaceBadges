@@ -36,8 +36,8 @@ namespace VSMarketplaceBadges.Controllers
         /// XSS になりうるので、スクリプトを実行させない層をここで 1 枚挟む。
         ///
         /// CloudFront の Response Headers Policy ではなくアプリ側で付けているのは、
-        /// ドキュメントページ (wwwroot/index.html) が jQuery・Bootstrap・Twitter ウィジェットと
-        /// インラインスクリプトを使っており、配信全体に同じ CSP をかけると壊れるため。
+        /// ドキュメントページ (wwwroot/index.html) がインラインのスクリプト・スタイルと
+        /// Marketplace API への fetch を使っており、配信全体に同じ CSP をかけると壊れるため。
         /// 全体に効かせる安全なヘッダー (HSTS / nosniff など) は CloudFront 側で付与している。
         ///
         /// style-src に unsafe-inline を許すのは、直接開いたときにバッジの見た目を保つため。
