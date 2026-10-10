@@ -97,6 +97,11 @@ Found a security issue? Please report it through
 [private vulnerability reporting](https://github.com/cssho/VSMarketplaceBadges/security/advisories/new)
 rather than a public issue.
 
+## Sponsor
+
+VSMarketplaceBadges is free to use and runs on a personal AWS account. If it is useful to you,
+consider supporting it through [GitHub Sponsors](https://github.com/sponsors/cssho).
+
 ## License
 
 [MIT](LICENSE)

@@ -96,6 +96,11 @@ Issue と Pull Request を歓迎します。
 [非公開の脆弱性報告](https://github.com/cssho/VSMarketplaceBadges/security/advisories/new)
 からお知らせください。
 
+## スポンサー
+
+VSMarketplaceBadges は無料で使え、個人の AWS アカウントで運用しています。役に立っていれば
+[GitHub Sponsors](https://github.com/sponsors/cssho) から支援していただけると励みになります。
+
 ## ライセンス
 
 [MIT](LICENSE)
