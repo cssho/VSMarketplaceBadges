@@ -22,6 +22,7 @@ on:
       - .editorconfig
       - .vscode/**
       - .github/dependabot.yml
+      - .github/FUNDING.yml
   workflow_dispatch:
 
 env:
