@@ -17,6 +17,7 @@ on:
       - .editorconfig
       - .vscode/**
       - .github/dependabot.yml
+      - .github/FUNDING.yml
   workflow_dispatch:
 
 # 既定より絞る。このワークフローはコードを読むだけ。
