@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 127 件
+dotnet test                                       # ユニットテスト 144 件 (約 30 秒)
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -87,12 +87,37 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 - `ToBadgeValue` は意図的に try の外に置いてある。ここでの例外は自前ロジックの不具合なので、
   フォールバックで覆い隠さず 500 として表に出す。
 
-## 分散キャッシュは意図的に未接続
+## キャッシュはプロセス内メモリ
 
-`UseCacheService` は `IDistributedCache` を注入しているが、`Startup.cs` では分散キャッシュを
-一切登録していない。Redis は削除済み。したがってすべてのキャッシュ呼び出しは失敗し、
-`logger.LogError(e, "Redis error.")` で握りつぶされる。
-これは既知の現状であり、修正すべきバグではない。本番でのキャッシュ関連エラーログは想定内のノイズ。
+`Services/UpstreamCache.cs` が専用の `MemoryCache` を持ち、`Startup.cs` で Singleton 登録している。
+Redis は 2022-06 に削除済み。キャッシュは Lambda の実行環境ごとに持ち、実行環境が作り直されれば消える。
+
+| 対象 | キー | 中身 | 有効期限 |
+| --- | --- | --- | --- |
+| Marketplace | `itemName` を小文字にしたものだけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` (オブジェクトのまま) | 10 分 |
+| shields.io | バッジ URL 全体 (クエリ文字列を含む) | 画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
+
+- **上限 200MB には、値だけでなくキー文字列 (UTF-16 で 1 文字 2 バイト) と管理領域 (1 件 512 バイトと
+  見積もる) も数える。** shields.io のキーには利用者が送るクエリの値がそのまま入り、URL は最大 8KB
+  近くになる。値だけを数えると、長いクエリを大量に送られたときに上限がメモリ使用量の上限にならない。
+  Lambda のメモリは 1024MB で、実測の使用量は 180MB 前後。上限を超える分は入れずに捨てる。
+  このとき `MemoryCache` は圧縮も起動し、上限の 5% ぶんの既存エントリを古い順に追い出す。
+  長いキーで埋められると正規のエントリも押し出されるが、上流へ取りに行き直すだけで表示は壊れない。
+- Marketplace のキーは `itemName` を小文字にそろえたもの。Marketplace は ID の大文字・小文字を
+  区別しないので、そろえないと同じ拡張機能を別々に取りに行ってしまう。
+- クエリの長さで弾くことはしない。`logo=data:image/svg+xml;base64,...` のように、正規の利用でも
+  数 KB になるため。
+- `SizeLimit` を設定した `MemoryCache` は、サイズを指定せずにエントリを追加すると例外を投げる。
+  そのため DI 共有の `IMemoryCache` は使わず専用のインスタンスを持ち、追加は `UpstreamCache.Set` の
+  1 か所に限っている。直接 `MemoryCache` を触らないこと。
+- 値は参照のまま返すので、呼び出し側で書き換えないこと。
+- Marketplace の生の応答は数十 KB あるので保存しない。
+- 取得の時点でスライディング期限が延びるので、ヒット時に何かを呼び直す必要はない。
+- 2026-10 までは `IDistributedCache` を使っており、その実体は `AddMvc()` が副作用で登録した
+  `MemoryDistributedCache` だった (当時のドキュメントは「未登録でキャッシュ呼び出しはすべて失敗する」と
+  誤っていた)。いまは `AddMvc` をやめて `AddControllers` だけにしてある。`UpstreamCache` の登録を消すと
+  コントローラーの生成で失敗して**全バッジが 500** になる (フォールバックより手前)。
+  `StartupServicesTests` がこれを、`UpstreamCacheSizeTests` が上限の数え方を検査する。
 
 ## バッジタイプの追加
 
@@ -104,6 +129,8 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 2. `Entity/BadgeRequest.cs` — subject 定数と、`BadgeType` セッターの switch への case 追加。
    subject は URL エンコード済みのリテラル (例: `Visual%20Studio%20Marketplace`)。
 3. `Utility/BadgeValuConverterExtentions.cs` — `ToBadgeValue` への case 追加。`default` は例外を投げる。
+   値に含まれる `-` と `_` は `ShiledsIoService.EscapeBadgeValue` が shields.io 用に二重にするので、
+   ここでエスケープしないこと (二重になる)。一方 subject の定数はエスケープ済みで書く (`trending--daily`)。
 4. `wwwroot/index.html` — 公開ドキュメントページの `#results` に
    `<li class="badge-card" data-type="kebab-case">見出し</li>` を追加。中身はスクリプトが組み立てる。
 5. `terraform/functions/path-filter.js` — `BADGE_TYPES` への追加 (後述のパスフィルタ)。
@@ -173,7 +200,7 @@ Lambda では待機時間がそのまま課金される。以下は 1 つだけ�
 
 | 層 | 値 | 場所 |
 | --- | --- | --- |
-| 外部 HTTP 1 呼び出し (ハードキャップ) | 10 秒 | `Startup.cs` の `TotalTimeoutPolicy` |
+| 外部 HTTP 1 呼び出し (ハードキャップ) | 10 秒 | `Startup.cs` の `CallTimeout` (`TotalTimeoutPolicy` と `HttpClient.Timeout`) |
 | 1 リクエスト最悪 | 30 秒 | Marketplace 10×2 + shields.io 10 |
 | Lambda | 35 秒 | `terraform/variables.tf` の `lambda_timeout` |
 | CloudFront オリジン応答 | 40 秒 | `terraform/variables.tf` の `origin_read_timeout` |
@@ -185,6 +212,13 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 登録して外側から重ねる。`PerAttemptTimeoutPolicy` が投げる `TimeoutRejectedException` は
 `HttpRequestException` ではないので、`RetryPolicy` の `.Or<TimeoutRejectedException>()` を
 外すとタイムアウトがリトライされずそのまま 500 になる。
+
+**Polly だけでは予算は守られない。** ポリシーが効くのは応答ヘッダーを受け取るまでで、
+応答本文の読み込みは HttpClient 本体が行うためポリシーの外になる。そこを打ち切るのは
+`HttpClient.Timeout` (既定 100 秒) だけなので、両クライアントに `CallTimeout` を設定してある。
+2026-10-20 に上流が本文の途中で止まり、ログを 1 行も出さないまま Lambda が 35 秒で
+タイムアウトした。`HttpClientTimeoutTests` が本文の止まる上流を模して検査する
+(打ち切りを実際に待つので、このテストだけで約 30 秒かかる)。
 
 ## デプロイ
 

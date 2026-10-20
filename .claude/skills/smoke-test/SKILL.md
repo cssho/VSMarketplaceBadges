@@ -51,5 +51,11 @@ Kill the background task when finished. Do not leave it running.
 
 ## Note
 
-The distributed cache is unwired (see CLAUDE.md), so every request hits the live Marketplace and
-shields.io APIs. `Redis error.` entries in the log are expected and are not a smoke-test failure.
+Responses are cached in process memory (see CLAUDE.md), and the cache keys differ per upstream:
+
+- Marketplace is keyed by item name only and kept for 10 minutes. Requesting another badge type
+  for the same item is served from the cache and does **not** call the Marketplace API.
+- shields.io is keyed by the full badge URL (subject, value, color, extension and query string).
+
+To verify a change to the Marketplace client against the live API, restart the app or request an
+item that has not been requested yet.
