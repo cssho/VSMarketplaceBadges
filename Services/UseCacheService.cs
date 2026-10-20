@@ -44,19 +44,5 @@ namespace VSMarketplaceBadges.Services
 
         }
 
-        protected async Task RefreshCache(string key)
-        {
-            try
-            {
-                await cache.RefreshAsync(key);
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Cache error.");
-
-            }
-
-        }
-
     }
 }

@@ -6,6 +6,13 @@ namespace VSMarketplaceBadges.Entity
 {
     public class VSMarketplaceItem
     {
+        /// <summary>
+        /// キャッシュから JSON で復元するためのコンストラクター。
+        /// </summary>
+        public VSMarketplaceItem()
+        {
+        }
+
         public VSMarketplaceItem(VSMarketplaceItemRaw raw)
         {
             // 数値部をセグメントごとに数値比較する必要があるため、序数比較ではなく semver 比較で最大版を選ぶ。
@@ -34,7 +41,7 @@ namespace VSMarketplaceBadges.Entity
                         break;
                     case "updateCount":
                         UpdateCount = (long)statistic.Value;
-                        break;                        
+                        break;
                     case "migratedInstallCount":
                         MigratedInstallCount = (long)statistic.Value;
                         break;

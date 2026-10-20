@@ -34,8 +34,7 @@ namespace VSMarketplaceBadges.Services
         {
             var cached = await FromCache(itemName);
             if (cached != null)
-                return new VSMarketplaceItem(JsonSerializer.Deserialize<VSMarketplaceResponse>(cached, options)
-                        .Results.FirstOrDefault()?.Extensions?.FirstOrDefault());
+                return JsonSerializer.Deserialize<VSMarketplaceItem>(cached, options);
 
             try
             {
@@ -68,7 +67,9 @@ namespace VSMarketplaceBadges.Services
                         return null;
                     }
                     var item = new VSMarketplaceItem(raw);
-                    await SaveCache(itemName, response, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
+                    // 生の応答は versions/files/statistics を丸ごと含み数十 KB になるうえ、
+                    // ヒットのたびにパースし直すことになる。バッジに要る値だけを計算済みの形で持つ。
+                    await SaveCache(itemName, JsonSerializer.SerializeToUtf8Bytes(item, options), new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
                     return item;
                 }
                 catch (Exception ex)

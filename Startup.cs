@@ -33,7 +33,12 @@ namespace VSMarketplaceBadges
         // このメソッドはランタイムから呼ばれる。DI コンテナへのサービス登録はここで行う。
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers()
+            // AddMvc は使わない。ビューや Razor のサービスまで持ち込み、その副作用で
+            // IDistributedCache まで暗黙に登録されて依存が見えなくなっていた。
+            services.AddControllers(options =>
+            {
+                options.OutputFormatters.Insert(0, new ImageOutputFormatter());
+            })
             .ConfigureApiBehaviorOptions(options => { options.SuppressInferBindingSourcesForParameters = true; });
 
             // Lambda 上では Kestrel の代わりに Lambda ランタイム API を待ち受けるサーバーに差し替わる。
@@ -42,8 +47,7 @@ namespace VSMarketplaceBadges
             services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
             // UseCacheService が使うキャッシュ。Lambda の実行環境ごとのメモリに持つ。
-            // AddMvc も副作用で同じものを登録するが、それに頼ると AddMvc を外した途端に
-            // サービスが解決できずバッジがすべて 500 になるので、ここで明示する。
+            // これが無いとサービスを解決できず、フォールバックより手前で全バッジが 500 になる。
             services.AddDistributedMemoryCache();
 
             services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>(x =>
@@ -78,11 +82,6 @@ namespace VSMarketplaceBadges
                 sp.GetRequiredService<ILogger<FallbackBadgeService>>()));
 
             // AddResponseCaching は行わない。理由は Configure 側のコメントを参照。
-
-            services.AddMvc(options =>
-            {
-                options.OutputFormatters.Insert(0, new ImageOutputFormatter());
-            });
         }
 
         // 外部応答をメモリに読み込む上限。上限を超えると HttpClient が例外を投げ、

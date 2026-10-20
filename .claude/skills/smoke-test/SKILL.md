@@ -51,7 +51,12 @@ Kill the background task when finished. Do not leave it running.
 
 ## Note
 
-Responses are cached in process memory (see CLAUDE.md), so only the first request for a given
-item and badge hits the live Marketplace and shields.io APIs. To re-verify against the live APIs,
-restart the app or request a different item. `Cache error.` entries in the log are not expected
-and should be investigated.
+Responses are cached in process memory (see CLAUDE.md), and the cache keys differ per upstream:
+
+- Marketplace is keyed by item name only and kept for 10 minutes. Requesting another badge type
+  for the same item is served from the cache and does **not** call the Marketplace API.
+- shields.io is keyed by the full badge URL (subject, value, color, extension and query string).
+
+To verify a change to the Marketplace client against the live API, restart the app or request an
+item that has not been requested yet. `Cache error.` entries in the log are not expected and should
+be investigated.

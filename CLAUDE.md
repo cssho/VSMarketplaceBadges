@@ -93,16 +93,19 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 `Startup.cs` の `AddDistributedMemoryCache()` で登録している。Redis は 2022-06 に削除済み。
 キャッシュは Lambda の実行環境ごとに持ち、実行環境が作り直されれば消える。
 
-| 対象 | 有効期限 |
-| --- | --- |
-| Marketplace の応答 | 10 分 |
-| shields.io の画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
+| 対象 | キー | 中身 | 有効期限 |
+| --- | --- | --- | --- |
+| Marketplace | `itemName` だけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` の JSON | 10 分 |
+| shields.io | バッジ URL 全体 (クエリ文字列を含む) | 画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
 
 - 上限は `MemoryDistributedCacheOptions` の既定 200MB。Lambda のメモリは 1024MB で、
-  実測の使用量は 180MB 前後。
-- `AddMvc()` も副作用で同じものを登録するため、2026-10 まではそれに頼って動いていた
-  (当時のドキュメントは「未登録でキャッシュ呼び出しはすべて失敗する」と誤っていた)。
-  明示登録を消して `AddMvc` だけに頼ると、`AddMvc` を外したときに `IDistributedCache` が
+  実測の使用量は 180MB 前後。ただし上限に数えられるのは値のバイト数だけで、キー文字列は入らない。
+- Marketplace の生の応答は数十 KB あり、ヒットのたびにパースし直すことになるので保存しない。
+  `VSMarketplaceItem` にプロパティを足したら、`UpstreamCacheTests` の比較にも足すこと。
+- `MemoryDistributedCache` は取得の時点でスライディング期限を延ばすので、`RefreshAsync` は呼ばない。
+- 2026-10 までは `AddMvc()` が副作用で登録したものに頼って動いていた (当時のドキュメントは
+  「未登録でキャッシュ呼び出しはすべて失敗する」と誤っていた)。いまは `AddMvc` をやめて
+  `AddControllers` だけにしてあり、`AddDistributedMemoryCache()` を消すと `IDistributedCache` が
   解決できず、コントローラーの生成で失敗して**全バッジが 500** になる (フォールバックより手前)。
   `StartupServicesTests` がこれを検査する。
 - 失敗時は `Cache error.` のログを出して上流へ取りに行く。本番では出ない想定なので、出たら調べる。

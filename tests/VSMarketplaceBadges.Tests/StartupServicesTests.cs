@@ -11,8 +11,8 @@ namespace VSMarketplaceBadges.Tests
     /// </summary>
     /// <remarks>
     /// <c>IDistributedCache</c> が解決できないとコントローラーの生成で失敗し、フォールバックより
-    /// 手前で全バッジが 500 になる。<c>AddMvc</c> の副作用に頼らず明示登録していることを
-    /// 外から確かめる手段がないので、解決できること自体を検査する。
+    /// 手前で全バッジが 500 になる。以前は <c>AddMvc</c> が副作用で登録したものに頼っていた。
+    /// いまは <c>AddDistributedMemoryCache</c> 以外に登録する箇所が無いので、それを消すと失敗する。
     /// </remarks>
     public class StartupServicesTests
     {

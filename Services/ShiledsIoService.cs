@@ -31,6 +31,8 @@ namespace VSMarketplaceBadges.Services
             }
 
             string requestUri = $"/badge/{request.Subject}-{badgeValue}-{request.Color}.{request.ImageExt.ToEnumMember()}" + additionalQuery;
+            // MemoryDistributedCache は取得の時点でスライディング期限を延ばすので、
+            // ヒット時に RefreshAsync を呼び直す必要はない。
             byte[] image = await FromCache(requestUri);
             if (image == null)
             {
@@ -40,10 +42,6 @@ namespace VSMarketplaceBadges.Services
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1),
                     SlidingExpiration = TimeSpan.FromHours(12)
                 });
-            }
-            else
-            {
-                await RefreshCache(requestUri);
             }
             return image;
         }
