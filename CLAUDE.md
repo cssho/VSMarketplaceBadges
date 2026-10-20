@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 129 件 (約 30 秒)
+dotnet test                                       # ユニットテスト 133 件 (約 30 秒)
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
