@@ -58,5 +58,4 @@ Responses are cached in process memory (see CLAUDE.md), and the cache keys diffe
 - shields.io is keyed by the full badge URL (subject, value, color, extension and query string).
 
 To verify a change to the Marketplace client against the live API, restart the app or request an
-item that has not been requested yet. `Cache error.` entries in the log are not expected and should
-be investigated.
+item that has not been requested yet.

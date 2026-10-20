@@ -4,18 +4,17 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using VSMarketplaceBadges.Entity;
 using VSMarketplaceBadges.Utility;
 
 namespace VSMarketplaceBadges.Services
 {
-    public class VSMarketplaceService : UseCacheService, IVSMarketplaceService
+    public class VSMarketplaceService : IVSMarketplaceService
     {
         private static readonly string endpoint = "/_apis/public/gallery/extensionquery";
         private readonly HttpClient client;
-        private readonly IDistributedCache cache;
+        private readonly UpstreamCache cache;
         private readonly ILogger logger;
 
         private readonly JsonSerializerOptions options = new JsonSerializerOptions
@@ -23,18 +22,24 @@ namespace VSMarketplaceBadges.Services
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-        public VSMarketplaceService(HttpClient client, IDistributedCache cache, ILogger<VSMarketplaceService> logger) : base(cache, logger)
+        public VSMarketplaceService(HttpClient client, UpstreamCache cache, ILogger<VSMarketplaceService> logger)
         {
             this.client = client;
             this.cache = cache;
             this.logger = logger;
         }
 
+        /// <summary>
+        /// キャッシュに入れる <see cref="VSMarketplaceItem"/> 1 件の大きさの見積もり。
+        /// 数値のフィールドとオブジェクトのヘッダーで 128 バイト、それにバージョン文字列を足す。
+        /// </summary>
+        private static long ItemSizeBytes(VSMarketplaceItem item) =>
+            128 + (long)(item.Version?.Length ?? 0) * sizeof(char);
+
         public async Task<VSMarketplaceItem> LoadVsmItemDataFromApi(string itemName)
         {
-            var cached = await FromCache(itemName);
-            if (cached != null)
-                return JsonSerializer.Deserialize<VSMarketplaceItem>(cached, options);
+            if (cache.TryGet<VSMarketplaceItem>(itemName, out var cached))
+                return cached;
 
             try
             {
@@ -67,9 +72,9 @@ namespace VSMarketplaceBadges.Services
                         return null;
                     }
                     var item = new VSMarketplaceItem(raw);
-                    // 生の応答は versions/files/statistics を丸ごと含み数十 KB になるうえ、
-                    // ヒットのたびにパースし直すことになる。バッジに要る値だけを計算済みの形で持つ。
-                    await SaveCache(itemName, JsonSerializer.SerializeToUtf8Bytes(item, options), new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
+                    // 生の応答は versions/files/statistics を丸ごと含み数十 KB になる。
+                    // バッジに要る値だけを計算済みのオブジェクトのまま持つ。
+                    cache.Set(itemName, item, ItemSizeBytes(item), TimeSpan.FromMinutes(10));
                     return item;
                 }
                 catch (Exception ex)

@@ -46,9 +46,9 @@ namespace VSMarketplaceBadges
             // 何も起きない。Function URL のペイロードは v2 形式なので HttpApi を指定する。
             services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
-            // UseCacheService が使うキャッシュ。Lambda の実行環境ごとのメモリに持つ。
+            // 上流の応答のキャッシュ。Lambda の実行環境ごとのメモリに持つ。
             // これが無いとサービスを解決できず、フォールバックより手前で全バッジが 500 になる。
-            services.AddDistributedMemoryCache();
+            services.AddSingleton(_ => new UpstreamCache());
 
             services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>(x =>
             {

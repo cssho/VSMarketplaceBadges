@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VSMarketplaceBadges.Services;
@@ -10,18 +9,18 @@ namespace VSMarketplaceBadges.Tests
     /// <see cref="Startup.ConfigureServices"/> の登録だけで上流クライアントが組み立てられることを担保する。
     /// </summary>
     /// <remarks>
-    /// <c>IDistributedCache</c> が解決できないとコントローラーの生成で失敗し、フォールバックより
-    /// 手前で全バッジが 500 になる。以前は <c>AddMvc</c> が副作用で登録したものに頼っていた。
-    /// いまは <c>AddDistributedMemoryCache</c> 以外に登録する箇所が無いので、それを消すと失敗する。
+    /// <see cref="UpstreamCache"/> が解決できないとコントローラーの生成で失敗し、フォールバックより
+    /// 手前で全バッジが 500 になる。以前は <c>AddMvc</c> が副作用で登録した <c>IDistributedCache</c> に
+    /// 頼っていて、登録が目に見えなかった。
     /// </remarks>
     public class StartupServicesTests
     {
         [Fact]
-        public void キャッシュはメモリ上の実装で登録される()
+        public void キャッシュが登録される()
         {
             using var provider = BuildServices();
 
-            Assert.IsType<MemoryDistributedCache>(provider.GetRequiredService<IDistributedCache>());
+            Assert.NotNull(provider.GetRequiredService<UpstreamCache>());
         }
 
         [Fact]

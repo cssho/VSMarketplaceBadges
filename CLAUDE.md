@@ -89,26 +89,31 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 
 ## キャッシュはプロセス内メモリ
 
-`UseCacheService` が注入する `IDistributedCache` の実体は `MemoryDistributedCache` で、
-`Startup.cs` の `AddDistributedMemoryCache()` で登録している。Redis は 2022-06 に削除済み。
-キャッシュは Lambda の実行環境ごとに持ち、実行環境が作り直されれば消える。
+`Services/UpstreamCache.cs` が専用の `MemoryCache` を持ち、`Startup.cs` で Singleton 登録している。
+Redis は 2022-06 に削除済み。キャッシュは Lambda の実行環境ごとに持ち、実行環境が作り直されれば消える。
 
 | 対象 | キー | 中身 | 有効期限 |
 | --- | --- | --- | --- |
-| Marketplace | `itemName` だけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` の JSON | 10 分 |
+| Marketplace | `itemName` だけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` (オブジェクトのまま) | 10 分 |
 | shields.io | バッジ URL 全体 (クエリ文字列を含む) | 画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
 
-- 上限は `MemoryDistributedCacheOptions` の既定 200MB。Lambda のメモリは 1024MB で、
-  実測の使用量は 180MB 前後。ただし上限に数えられるのは値のバイト数だけで、キー文字列は入らない。
-- Marketplace の生の応答は数十 KB あり、ヒットのたびにパースし直すことになるので保存しない。
-  `VSMarketplaceItem` にプロパティを足したら、`UpstreamCacheTests` の比較にも足すこと。
-- `MemoryDistributedCache` は取得の時点でスライディング期限を延ばすので、`RefreshAsync` は呼ばない。
-- 2026-10 までは `AddMvc()` が副作用で登録したものに頼って動いていた (当時のドキュメントは
-  「未登録でキャッシュ呼び出しはすべて失敗する」と誤っていた)。いまは `AddMvc` をやめて
-  `AddControllers` だけにしてあり、`AddDistributedMemoryCache()` を消すと `IDistributedCache` が
-  解決できず、コントローラーの生成で失敗して**全バッジが 500** になる (フォールバックより手前)。
-  `StartupServicesTests` がこれを検査する。
-- 失敗時は `Cache error.` のログを出して上流へ取りに行く。本番では出ない想定なので、出たら調べる。
+- **上限 200MB には、値だけでなくキー文字列 (UTF-16 で 1 文字 2 バイト) と管理領域 (1 件 512 バイトと
+  見積もる) も数える。** shields.io のキーには利用者が送るクエリの値がそのまま入り、URL は最大 8KB
+  近くになる。値だけを数えると、長いクエリを大量に送られたときに上限がメモリ使用量の上限にならない。
+  Lambda のメモリは 1024MB で、実測の使用量は 180MB 前後。上限を超える分は入れずに捨てる。
+- クエリの長さで弾くことはしない。`logo=data:image/svg+xml;base64,...` のように、正規の利用でも
+  数 KB になるため。
+- `SizeLimit` を設定した `MemoryCache` は、サイズを指定せずにエントリを追加すると例外を投げる。
+  そのため DI 共有の `IMemoryCache` は使わず専用のインスタンスを持ち、追加は `UpstreamCache.Set` の
+  1 か所に限っている。直接 `MemoryCache` を触らないこと。
+- 値は参照のまま返すので、呼び出し側で書き換えないこと。
+- Marketplace の生の応答は数十 KB あるので保存しない。
+- 取得の時点でスライディング期限が延びるので、ヒット時に何かを呼び直す必要はない。
+- 2026-10 までは `IDistributedCache` を使っており、その実体は `AddMvc()` が副作用で登録した
+  `MemoryDistributedCache` だった (当時のドキュメントは「未登録でキャッシュ呼び出しはすべて失敗する」と
+  誤っていた)。いまは `AddMvc` をやめて `AddControllers` だけにしてある。`UpstreamCache` の登録を消すと
+  コントローラーの生成で失敗して**全バッジが 500** になる (フォールバックより手前)。
+  `StartupServicesTests` がこれを、`UpstreamCacheSizeTests` が上限の数え方を検査する。
 
 ## バッジタイプの追加
 
