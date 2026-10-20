@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 127 件
+dotnet test                                       # ユニットテスト 129 件 (約 30 秒)
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -173,7 +173,7 @@ Lambda では待機時間がそのまま課金される。以下は 1 つだけ�
 
 | 層 | 値 | 場所 |
 | --- | --- | --- |
-| 外部 HTTP 1 呼び出し (ハードキャップ) | 10 秒 | `Startup.cs` の `TotalTimeoutPolicy` |
+| 外部 HTTP 1 呼び出し (ハードキャップ) | 10 秒 | `Startup.cs` の `CallTimeout` (`TotalTimeoutPolicy` と `HttpClient.Timeout`) |
 | 1 リクエスト最悪 | 30 秒 | Marketplace 10×2 + shields.io 10 |
 | Lambda | 35 秒 | `terraform/variables.tf` の `lambda_timeout` |
 | CloudFront オリジン応答 | 40 秒 | `terraform/variables.tf` の `origin_read_timeout` |
@@ -185,6 +185,13 @@ Polly のポリシーは `TotalTimeoutPolicy` → `RetryPolicy` → `PerAttemptT
 登録して外側から重ねる。`PerAttemptTimeoutPolicy` が投げる `TimeoutRejectedException` は
 `HttpRequestException` ではないので、`RetryPolicy` の `.Or<TimeoutRejectedException>()` を
 外すとタイムアウトがリトライされずそのまま 500 になる。
+
+**Polly だけでは予算は守られない。** ポリシーが効くのは応答ヘッダーを受け取るまでで、
+応答本文の読み込みは HttpClient 本体が行うためポリシーの外になる。そこを打ち切るのは
+`HttpClient.Timeout` (既定 100 秒) だけなので、両クライアントに `CallTimeout` を設定してある。
+2026-10-20 に上流が本文の途中で止まり、ログを 1 行も出さないまま Lambda が 35 秒で
+タイムアウトした。`HttpClientTimeoutTests` が本文の止まる上流を模して検査する
+(打ち切りを実際に待つので、このテストだけで約 30 秒かかる)。
 
 ## デプロイ
 

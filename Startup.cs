@@ -47,6 +47,7 @@ namespace VSMarketplaceBadges
                 x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
                 x.DefaultRequestHeaders.Add("Accept", "application/json;api-version=3.0-preview.1");
                 x.MaxResponseContentBufferSize = MarketplaceMaxResponseBytes;
+                x.Timeout = CallTimeout;
             }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
@@ -59,6 +60,7 @@ namespace VSMarketplaceBadges
                     x.BaseAddress = new Uri("https://img.shields.io");
                     x.DefaultRequestHeaders.Add("UserAgent", "VSMarketplaceBadges/2.0");
                     x.MaxResponseContentBufferSize = ShieldsIoMaxResponseBytes;
+                    x.Timeout = CallTimeout;
                 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                 {
                     AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
@@ -105,6 +107,13 @@ namespace VSMarketplaceBadges
         // CloudFront のオリジン応答タイムアウト (40 秒) の内側に収まるよう terraform 側と
         // 揃えてある。1 か所だけ変えないこと。
         //
+        // ただし Polly が効くのはハンドラーのパイプラインの中 (応答ヘッダーを受け取るまで) だけ。
+        // 応答本文の読み込み (PostAsync の既定 ResponseContentRead によるバッファリングや
+        // GetByteArrayAsync) は HttpClient 本体が行うのでポリシーの外になり、HttpClient.Timeout
+        // (既定 100 秒) でしか打ち切れない。そこで同じ CallTimeout を HttpClient.Timeout にも
+        // 設定し、本文の読み込みまで含めて 10 秒に収めている。2026-10-20 に上流が本文の途中で
+        // 止まり、アプリが 1 行もログを出さないまま Lambda が 35 秒でタイムアウトした。
+        //
         // 試行ごとを 5 秒にしているのは、Marketplace の extensionquery が flags=914 で
         // versions/files/statistics を丸ごと返す重いクエリで、コールドな拡張機能では
         // 数秒かかることが珍しくないため。短くしすぎると「上流が遅いだけ」で 500 になる。
@@ -134,7 +143,14 @@ namespace VSMarketplaceBadges
         /// 上限をここ 1 か所で保証するためのもの。
         /// </summary>
         private static IAsyncPolicy<HttpResponseMessage> TotalTimeoutPolicy() =>
-            Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(10));
+            Policy.TimeoutAsync<HttpResponseMessage>(CallTimeout);
+
+        /// <summary>
+        /// 外部呼び出し 1 回あたりの上限。<see cref="TotalTimeoutPolicy"/> と
+        /// <c>HttpClient.Timeout</c> の両方に使い、ポリシーの外にある応答本文の読み込みも
+        /// 同じ時間で打ち切る。
+        /// </summary>
+        private static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(10);
 
         // このメソッドはランタイムから呼ばれる。HTTP リクエストパイプラインの構成はここで行う。
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
