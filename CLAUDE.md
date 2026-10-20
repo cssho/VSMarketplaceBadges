@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 138 件 (約 30 秒)
+dotnet test                                       # ユニットテスト 144 件 (約 30 秒)
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -129,6 +129,8 @@ Redis は 2022-06 に削除済み。キャッシュは Lambda の実行環境ご
 2. `Entity/BadgeRequest.cs` — subject 定数と、`BadgeType` セッターの switch への case 追加。
    subject は URL エンコード済みのリテラル (例: `Visual%20Studio%20Marketplace`)。
 3. `Utility/BadgeValuConverterExtentions.cs` — `ToBadgeValue` への case 追加。`default` は例外を投げる。
+   値に含まれる `-` と `_` は `ShiledsIoService.EscapeBadgeValue` が shields.io 用に二重にするので、
+   ここでエスケープしないこと (二重になる)。一方 subject の定数はエスケープ済みで書く (`trending--daily`)。
 4. `wwwroot/index.html` — 公開ドキュメントページの `#results` に
    `<li class="badge-card" data-type="kebab-case">見出し</li>` を追加。中身はスクリプトが組み立てる。
 5. `terraform/functions/path-filter.js` — `BADGE_TYPES` への追加 (後述のパスフィルタ)。
