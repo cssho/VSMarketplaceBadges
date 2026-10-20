@@ -41,6 +41,11 @@ namespace VSMarketplaceBadges
             // 何も起きない。Function URL のペイロードは v2 形式なので HttpApi を指定する。
             services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
+            // UseCacheService が使うキャッシュ。Lambda の実行環境ごとのメモリに持つ。
+            // AddMvc も副作用で同じものを登録するが、それに頼ると AddMvc を外した途端に
+            // サービスが解決できずバッジがすべて 500 になるので、ここで明示する。
+            services.AddDistributedMemoryCache();
+
             services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>(x =>
             {
                 x.BaseAddress = new Uri("https://marketplace.visualstudio.com");

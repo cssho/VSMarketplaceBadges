@@ -87,12 +87,25 @@ CloudWatch のロググループ側 (`terraform/main.tf`) で制御する。
 - `ToBadgeValue` は意図的に try の外に置いてある。ここでの例外は自前ロジックの不具合なので、
   フォールバックで覆い隠さず 500 として表に出す。
 
-## 分散キャッシュは意図的に未接続
+## キャッシュはプロセス内メモリ
 
-`UseCacheService` は `IDistributedCache` を注入しているが、`Startup.cs` では分散キャッシュを
-一切登録していない。Redis は削除済み。したがってすべてのキャッシュ呼び出しは失敗し、
-`logger.LogError(e, "Redis error.")` で握りつぶされる。
-これは既知の現状であり、修正すべきバグではない。本番でのキャッシュ関連エラーログは想定内のノイズ。
+`UseCacheService` が注入する `IDistributedCache` の実体は `MemoryDistributedCache` で、
+`Startup.cs` の `AddDistributedMemoryCache()` で登録している。Redis は 2022-06 に削除済み。
+キャッシュは Lambda の実行環境ごとに持ち、実行環境が作り直されれば消える。
+
+| 対象 | 有効期限 |
+| --- | --- |
+| Marketplace の応答 | 10 分 |
+| shields.io の画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
+
+- 上限は `MemoryDistributedCacheOptions` の既定 200MB。Lambda のメモリは 1024MB で、
+  実測の使用量は 180MB 前後。
+- `AddMvc()` も副作用で同じものを登録するため、2026-10 まではそれに頼って動いていた
+  (当時のドキュメントは「未登録でキャッシュ呼び出しはすべて失敗する」と誤っていた)。
+  明示登録を消して `AddMvc` だけに頼ると、`AddMvc` を外したときに `IDistributedCache` が
+  解決できず、コントローラーの生成で失敗して**全バッジが 500** になる (フォールバックより手前)。
+  `StartupServicesTests` がこれを検査する。
+- 失敗時は `Cache error.` のログを出して上流へ取りに行く。本番では出ない想定なので、出たら調べる。
 
 ## バッジタイプの追加
 

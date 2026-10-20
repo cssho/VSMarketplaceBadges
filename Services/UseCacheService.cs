@@ -25,7 +25,7 @@ namespace VSMarketplaceBadges.Services
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Redis error.");
+                logger.LogError(e, "Cache error.");
             }
             return null;
         }
@@ -38,7 +38,7 @@ namespace VSMarketplaceBadges.Services
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Redis error.");
+                logger.LogError(e, "Cache error.");
 
             }
 
@@ -52,7 +52,7 @@ namespace VSMarketplaceBadges.Services
             }
             catch (Exception e)
             {
-                logger.LogError(e, "Redis error.");
+                logger.LogError(e, "Cache error.");
 
             }
 

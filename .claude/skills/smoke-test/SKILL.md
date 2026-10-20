@@ -51,5 +51,7 @@ Kill the background task when finished. Do not leave it running.
 
 ## Note
 
-The distributed cache is unwired (see CLAUDE.md), so every request hits the live Marketplace and
-shields.io APIs. `Redis error.` entries in the log are expected and are not a smoke-test failure.
+Responses are cached in process memory (see CLAUDE.md), so only the first request for a given
+item and badge hits the live Marketplace and shields.io APIs. To re-verify against the live APIs,
+restart the app or request a different item. `Cache error.` entries in the log are not expected
+and should be investigated.
