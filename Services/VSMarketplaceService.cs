@@ -38,9 +38,24 @@ namespace VSMarketplaceBadges.Services
 
         public async Task<VSMarketplaceItem> LoadVsmItemDataFromApi(string itemName)
         {
-            if (cache.TryGet<VSMarketplaceItem>(itemName, out var cached))
+            // Marketplace は拡張機能の ID の大文字・小文字を区別しないので、キーもそろえる。
+            // そろえないと同じ拡張機能を書き方の数だけ別々に取りに行ってしまう。
+            var key = itemName.ToLowerInvariant();
+            if (cache.TryGet<VSMarketplaceItem>(key, out var cached))
                 return cached;
 
+            var item = await RequestWithRetry(itemName);
+            // キャッシュへの保存はリトライの try の外で行う。中に置くと、保存の失敗が
+            // Marketplace の二重呼び出しとフォールバックのバッジに化けてしまう。
+            // 生の応答は versions/files/statistics を丸ごと含み数十 KB になるので、
+            // バッジに要る値だけを計算済みのオブジェクトのまま持つ。
+            if (item != null)
+                cache.Set(key, item, ItemSizeBytes(item), TimeSpan.FromMinutes(10));
+            return item;
+        }
+
+        private async Task<VSMarketplaceItem> RequestWithRetry(string itemName)
+        {
             try
             {
                 return await CoreRequest(itemName);
@@ -71,11 +86,7 @@ namespace VSMarketplaceBadges.Services
                         logger.LogInformation("Not found item: {itemName}", LogSanitizer.ForLog(itemName));
                         return null;
                     }
-                    var item = new VSMarketplaceItem(raw);
-                    // 生の応答は versions/files/statistics を丸ごと含み数十 KB になる。
-                    // バッジに要る値だけを計算済みのオブジェクトのまま持つ。
-                    cache.Set(itemName, item, ItemSizeBytes(item), TimeSpan.FromMinutes(10));
-                    return item;
+                    return new VSMarketplaceItem(raw);
                 }
                 catch (Exception ex)
                 {

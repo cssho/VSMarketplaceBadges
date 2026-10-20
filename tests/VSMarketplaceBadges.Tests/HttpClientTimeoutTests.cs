@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VSMarketplaceBadges.Entity;
 using VSMarketplaceBadges.Services;
@@ -31,7 +30,8 @@ namespace VSMarketplaceBadges.Tests
         [Fact]
         public async Task shields_io_の本文が止まっても時間予算内に打ち切られる()
         {
-            var shieldsIo = BuildServices().GetRequiredService<IShiledsIoService>();
+            using var provider = TestServices.Build(shieldsIo: new StalledBodyHandler());
+            var shieldsIo = provider.GetRequiredService<IShiledsIoService>();
             var request = new BadgeRequest { BadgeType = BadgeType.VersionShort, ImageExt = ImageExt.Svg };
 
             var sw = Stopwatch.StartNew();
@@ -43,31 +43,14 @@ namespace VSMarketplaceBadges.Tests
         [Fact]
         public async Task Marketplace_の本文が止まっても時間予算内に打ち切られる()
         {
-            var marketplace = BuildServices().GetRequiredService<IVSMarketplaceService>();
+            using var provider = TestServices.Build(marketplace: new StalledBodyHandler());
+            var marketplace = provider.GetRequiredService<IVSMarketplaceService>();
 
             // LoadVsmItemDataFromApi は失敗時にもう一度呼ぶので、予算はその 2 倍。
             var sw = Stopwatch.StartNew();
             await Assert.ThrowsAnyAsync<Exception>(() => marketplace.LoadVsmItemDataFromApi("publisher.extension"));
 
             Assert.True(sw.Elapsed < Budget * 2, $"打ち切りまで {sw.Elapsed.TotalSeconds:F1} 秒かかった");
-        }
-
-        /// <summary>
-        /// 本番と同じ登録 (ポリシー・HttpClient の設定) のまま、通信部分だけを
-        /// 本文が止まるハンドラーに差し替えたサービスを組み立てる。
-        /// </summary>
-        private static ServiceProvider BuildServices()
-        {
-            var services = new ServiceCollection();
-            services.AddLogging();
-            new Startup(new ConfigurationBuilder().Build(), null).ConfigureServices(services);
-
-            services.AddHttpClient<IShiledsIoService, ShiledsIoService>()
-                .ConfigurePrimaryHttpMessageHandler(() => new StalledBodyHandler());
-            services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>()
-                .ConfigurePrimaryHttpMessageHandler(() => new StalledBodyHandler());
-
-            return services.BuildServiceProvider();
         }
 
         /// <summary>

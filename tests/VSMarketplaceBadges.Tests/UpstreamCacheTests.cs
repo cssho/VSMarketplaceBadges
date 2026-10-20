@@ -3,7 +3,6 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VSMarketplaceBadges.Entity;
 using VSMarketplaceBadges.Services;
@@ -38,31 +37,38 @@ namespace VSMarketplaceBadges.Tests
         public async Task Marketplace_はヒット時に上流を呼ばず同じ値を返す()
         {
             var handler = new CountingHandler(MarketplaceResponse);
-            var marketplace = BuildServices(marketplaceHandler: handler).GetRequiredService<IVSMarketplaceService>();
+            using var provider = TestServices.Build(marketplace: handler);
+            var marketplace = provider.GetRequiredService<IVSMarketplaceService>();
 
             var first = await marketplace.LoadVsmItemDataFromApi("publisher.extension");
             var second = await marketplace.LoadVsmItemDataFromApi("publisher.extension");
 
             Assert.Equal(1, handler.Calls);
+            Assert.Same(first, second);
             Assert.Equal("v1.10.0", second.Version);
-            Assert.Equal(first.Version, second.Version);
-            Assert.Equal(first.AverageRating, second.AverageRating);
-            Assert.Equal(first.RatingCount, second.RatingCount);
-            Assert.Equal(first.TrendingDaily, second.TrendingDaily);
-            Assert.Equal(first.TrendingWeekly, second.TrendingWeekly);
-            Assert.Equal(first.TrendingMonthly, second.TrendingMonthly);
-            Assert.Equal(first.Install, second.Install);
-            Assert.Equal(first.UpdateCount, second.UpdateCount);
-            Assert.Equal(first.MigratedInstallCount, second.MigratedInstallCount);
             Assert.Equal(1545, second.DownloadCount);
             Assert.Equal(1245, second.InstallCount);
+        }
+
+        [Fact]
+        public async Task Marketplace_のキャッシュは大文字小文字を区別しない()
+        {
+            var handler = new CountingHandler(MarketplaceResponse);
+            using var provider = TestServices.Build(marketplace: handler);
+            var marketplace = provider.GetRequiredService<IVSMarketplaceService>();
+
+            await marketplace.LoadVsmItemDataFromApi("Publisher.Extension");
+            await marketplace.LoadVsmItemDataFromApi("publisher.extension");
+
+            Assert.Equal(1, handler.Calls);
         }
 
         [Fact]
         public async Task shields_io_はヒット時に上流を呼ばず同じ画像を返す()
         {
             var handler = new CountingHandler("<svg/>");
-            var shieldsIo = BuildServices(shieldsIoHandler: handler).GetRequiredService<IShiledsIoService>();
+            using var provider = TestServices.Build(shieldsIo: handler);
+            var shieldsIo = provider.GetRequiredService<IShiledsIoService>();
             var request = new BadgeRequest { BadgeType = BadgeType.VersionShort, ImageExt = ImageExt.Svg };
 
             var first = await shieldsIo.LoadImage(request, "1.0.0", "");
@@ -70,25 +76,6 @@ namespace VSMarketplaceBadges.Tests
 
             Assert.Equal(1, handler.Calls);
             Assert.Equal(first, second);
-        }
-
-        /// <summary>
-        /// 本番と同じ登録のまま、通信部分だけを固定の応答を返すハンドラーに差し替える。
-        /// </summary>
-        private static ServiceProvider BuildServices(CountingHandler marketplaceHandler = null, CountingHandler shieldsIoHandler = null)
-        {
-            var services = new ServiceCollection();
-            services.AddLogging();
-            new Startup(new ConfigurationBuilder().Build(), null).ConfigureServices(services);
-
-            if (marketplaceHandler != null)
-                services.AddHttpClient<IVSMarketplaceService, VSMarketplaceService>()
-                    .ConfigurePrimaryHttpMessageHandler(() => marketplaceHandler);
-            if (shieldsIoHandler != null)
-                services.AddHttpClient<IShiledsIoService, ShiledsIoService>()
-                    .ConfigurePrimaryHttpMessageHandler(() => shieldsIoHandler);
-
-            return services.BuildServiceProvider();
         }
 
         private class CountingHandler : HttpMessageHandler

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VSMarketplaceBadges.Services;
 using Xunit;
@@ -18,7 +17,7 @@ namespace VSMarketplaceBadges.Tests
         [Fact]
         public void キャッシュが登録される()
         {
-            using var provider = BuildServices();
+            using var provider = TestServices.Build();
 
             Assert.NotNull(provider.GetRequiredService<UpstreamCache>());
         }
@@ -26,18 +25,10 @@ namespace VSMarketplaceBadges.Tests
         [Fact]
         public void 上流クライアントを解決できる()
         {
-            using var provider = BuildServices();
+            using var provider = TestServices.Build();
 
             Assert.NotNull(provider.GetRequiredService<IVSMarketplaceService>());
             Assert.NotNull(provider.GetRequiredService<IShiledsIoService>());
-        }
-
-        private static ServiceProvider BuildServices()
-        {
-            var services = new ServiceCollection();
-            services.AddLogging();
-            new Startup(new ConfigurationBuilder().Build(), null).ConfigureServices(services);
-            return services.BuildServiceProvider();
         }
     }
 }

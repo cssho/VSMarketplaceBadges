@@ -54,6 +54,13 @@ namespace VSMarketplaceBadges.Services
         /// <summary>
         /// キャッシュに入れる。上限を超える場合は入れずに捨てる (例外は投げない)。
         /// </summary>
+        /// <remarks>
+        /// 上限を超えた追加は、捨てられるだけでなく <see cref="MemoryCache"/> の圧縮も
+        /// バックグラウンドで起動する。圧縮では上限の 5% (<see cref="MemoryCacheOptions.CompactionPercentage"/>
+        /// の既定値) ぶんの既存エントリが、期限切れ → 最後に使われたのが古い順に追い出される。
+        /// つまり長いキーで上限まで埋められると、正規のバッジのエントリも押し出される。
+        /// その場合も上流へ取りに行き直すだけで、表示は壊れない。
+        /// </remarks>
         /// <param name="valueBytes">値が占めるおおよそのバイト数。</param>
         public void Set<T>(string key, T value, long valueBytes, TimeSpan absoluteExpiration, TimeSpan? slidingExpiration = null)
         {

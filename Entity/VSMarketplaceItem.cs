@@ -4,6 +4,10 @@ using VSMarketplaceBadges.Utility;
 
 namespace VSMarketplaceBadges.Entity
 {
+    /// <summary>
+    /// バッジに使う値。<see cref="Services.UpstreamCache"/> が同じインスタンスを複数のリクエストで
+    /// 共有するので、生成後は書き換えられないようにしてある。
+    /// </summary>
     public class VSMarketplaceItem
     {
         public VSMarketplaceItem(VSMarketplaceItemRaw raw)
@@ -41,16 +45,16 @@ namespace VSMarketplaceBadges.Entity
                 }
             }
         }
-        public string Version { get; set; }
-        public double AverageRating { get; set; } = 0;
-        public int RatingCount { get; set; } = 0;
-        public double TrendingDaily { get; set; } = 0;
-        public double TrendingMonthly { get; set; } = 0;
-        public double TrendingWeekly { get; set; } = 0;
+        public string Version { get; private set; }
+        public double AverageRating { get; private set; } = 0;
+        public int RatingCount { get; private set; } = 0;
+        public double TrendingDaily { get; private set; } = 0;
+        public double TrendingMonthly { get; private set; } = 0;
+        public double TrendingWeekly { get; private set; } = 0;
 
-        public long Install { get; set; }
-        public long UpdateCount { get; set; }
-        public long MigratedInstallCount { get; set; }
+        public long Install { get; private set; }
+        public long UpdateCount { get; private set; }
+        public long MigratedInstallCount { get; private set; }
 
         public long DownloadCount => Install + UpdateCount + MigratedInstallCount;
         public long InstallCount => Install + MigratedInstallCount;

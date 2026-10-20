@@ -25,7 +25,7 @@ Visual Studio Marketplace 拡張機能向けに shields.io バッジを配信す
 
 ```
 dotnet build                                      # ソリューション: Web プロジェクト + テスト
-dotnet test                                       # ユニットテスト 133 件 (約 30 秒)
+dotnet test                                       # ユニットテスト 138 件 (約 30 秒)
 dotnet test --filter FullyQualifiedName~RatingStar
 dotnet watch run --project VSMarketplaceBadges.csproj   # ローカル開発
 ```
@@ -94,13 +94,17 @@ Redis は 2022-06 に削除済み。キャッシュは Lambda の実行環境ご
 
 | 対象 | キー | 中身 | 有効期限 |
 | --- | --- | --- | --- |
-| Marketplace | `itemName` だけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` (オブジェクトのまま) | 10 分 |
+| Marketplace | `itemName` を小文字にしたものだけ (バッジタイプは含まない) | 計算済みの `VSMarketplaceItem` (オブジェクトのまま) | 10 分 |
 | shields.io | バッジ URL 全体 (クエリ文字列を含む) | 画像 | 最長 1 日 (12 時間アクセスが無ければ失効) |
 
 - **上限 200MB には、値だけでなくキー文字列 (UTF-16 で 1 文字 2 バイト) と管理領域 (1 件 512 バイトと
   見積もる) も数える。** shields.io のキーには利用者が送るクエリの値がそのまま入り、URL は最大 8KB
   近くになる。値だけを数えると、長いクエリを大量に送られたときに上限がメモリ使用量の上限にならない。
   Lambda のメモリは 1024MB で、実測の使用量は 180MB 前後。上限を超える分は入れずに捨てる。
+  このとき `MemoryCache` は圧縮も起動し、上限の 5% ぶんの既存エントリを古い順に追い出す。
+  長いキーで埋められると正規のエントリも押し出されるが、上流へ取りに行き直すだけで表示は壊れない。
+- Marketplace のキーは `itemName` を小文字にそろえたもの。Marketplace は ID の大文字・小文字を
+  区別しないので、そろえないと同じ拡張機能を別々に取りに行ってしまう。
 - クエリの長さで弾くことはしない。`logo=data:image/svg+xml;base64,...` のように、正規の利用でも
   数 KB になるため。
 - `SizeLimit` を設定した `MemoryCache` は、サイズを指定せずにエントリを追加すると例外を投げる。
