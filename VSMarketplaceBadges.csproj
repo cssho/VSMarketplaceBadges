@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="2.2.1" />
-    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.14" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
