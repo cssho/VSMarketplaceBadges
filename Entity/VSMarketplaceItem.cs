@@ -13,8 +13,12 @@ namespace VSMarketplaceBadges.Entity
         public VSMarketplaceItem(VSMarketplaceItemRaw raw)
         {
             // 数値部をセグメントごとに数値比較する必要があるため、序数比較ではなく semver 比較で最大版を選ぶ。
-            Version = $"v{raw.Versions.Select(x => x.Version).Max(SemanticVersionComparer.Instance)}";
-            foreach (var statistic in raw.Statistics)
+            // versions が無い応答では null にする。"v" だけのバッジにせず、unknown と表示させるため。
+            var maxVersion = raw.Versions?.Select(x => x.Version).Max(SemanticVersionComparer.Instance);
+            Version = maxVersion == null ? null : $"v{maxVersion}";
+            // 公開直後でインストールも評価も無い拡張機能では、Marketplace は statistics キーごと省く (#46)。
+            // その場合は統計値をすべて 0 のままにする。
+            foreach (var statistic in raw.Statistics ?? Enumerable.Empty<VSMarketplaceStatistics>())
             {
                 switch (statistic.StatisticName)
                 {
